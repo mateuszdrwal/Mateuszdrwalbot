@@ -5,3 +5,4 @@ start.sh
 update.sh
 loginInfo.py
 error.txt
+dataBackup.py
