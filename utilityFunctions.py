@@ -1,3 +1,6 @@
+import json
+from datetime import datetime
+from urllib2 import urlopen
 class utilityFunctions:
     
     def isSplit(self,splits,splitName): #check if string is a valid split, if yes return column letter from spreadsheet
@@ -55,3 +58,7 @@ class utilityFunctions:
             if ops[i] == nick:
                 return True
         return False
+
+    def nyctime(self): #returns datetime object with nyc date and time
+        nyc = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
+        return datetime(int(nyc.get("year")),int(nyc.get("month")),int(nyc.get("day")),int(nyc.get("hours")),int(nyc.get("minutes")),int(nyc.get("seconds")))
