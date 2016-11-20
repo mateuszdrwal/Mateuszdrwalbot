@@ -11,7 +11,7 @@ class utilityFunctions:
         return ""
 
     def readableTime(self,timestamp): #converts timestamp into readable time
-        m, sec = divmod(timestamp, 60)
+        m, sec = divmod(int(timestamp), 60)
         h, m = divmod(m, 60)
         h = int(h)
         m = int(m)
@@ -33,10 +33,9 @@ class utilityFunctions:
         except IndexError:
             return num
 
-    def getColumn(self,int): #returns a specific column in a 2D array
-        spreadsheet = ss.get_all_values()
+    def getColumn(self,spreadsheet,int): #returns a specific column in a 2D array
         column = []
-        for i in range(1,pos(int)):
+        for i in range(1,self.length(spreadsheet,int-1)):
             column.append(spreadsheet[i][int-1])
         return column
 
@@ -60,5 +59,19 @@ class utilityFunctions:
         return False
 
     def nyctime(self): #returns datetime object with nyc date and time
-        nyc = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
+        nyc = json.loads(self.url("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
         return datetime(int(nyc.get("year")),int(nyc.get("month")),int(nyc.get("day")),int(nyc.get("hours")),int(nyc.get("minutes")),int(nyc.get("seconds")))
+
+    def url(self,string): #returns whatever urlopen() would return retrying if gotten an error
+        while True:
+            try:
+                return urlopen(string)
+            except:
+                pass
+
+    def largest(self,array):
+        num = 0
+        for i in range(0,len(array)):
+            if array[i] > num:
+                num = array[i]
+        return num
