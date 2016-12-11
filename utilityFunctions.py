@@ -1,4 +1,4 @@
-import json
+import json,threading
 from datetime import datetime
 from urllib2 import urlopen
 class utilityFunctions:
@@ -39,6 +39,12 @@ class utilityFunctions:
             column.append(spreadsheet[i][int-1])
         return column
 
+    def getFullColumn(self,spreadsheet,int): #same as ^ but does include empty spaces
+        column = []
+        for i in range(1,len(spreadsheet)):
+            column.append(spreadsheet[i][int-1])
+        return column
+    
     def streak(self,array): #returns the highest number of "items in a row" that are not 0
         intt = 0
         rec = 0
@@ -52,10 +58,9 @@ class utilityFunctions:
                 rec = intt
         return rec
 
-    def isOp(self,ops,nick): #returns True if nick is in the ops array
-        for i in range(0,len(ops)):
-            if ops[i] == nick:
-                return True
+    def perm(self,perm,nick,level): #returns True if nick is in the ops array
+        if perm.get(nick,0) >= level:
+            return True
         return False
 
     def nyctime(self): #returns datetime object with nyc date and time
@@ -75,3 +80,23 @@ class utilityFunctions:
             if array[i] > num:
                 num = array[i]
         return num
+
+    def updateCell(self,ss,pos,val):
+        while True:
+            def cellUpdater(pos,val,ss):
+                while True:
+                    try:
+                        ss.update_acell(pos,val)
+                        break
+                    except:
+                        pass
+            if self.timeout(cellUpdater,60,arguments=(pos,val,ss)):
+                break
+
+    def timeout(self, func, sec, arguments=()): #pass a function as first argument. tries to execute function in given time, if it doesnt finish returns false. otherwise returns true
+        thread = threading.Thread(target=func,args=arguments)
+        thread.start()
+        thread.join(sec)
+        if thread.isAlive():
+            return False
+        return True

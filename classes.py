@@ -7,9 +7,10 @@ uf = utilityFunctions()
 class info: #the class for setable custom commands
 
     def set(self,ops,username,message):#returns chat message, imput array of users that can change the text, their username and a string containing the potential new text
-        if uf.isOp(ops,username):
+        if uf.perm(ops,username,1):
             self.info = message.capitalize()
-            return "info successfully set to " + self.info
+            return "info successfully set to \"%s\"" % self.info
+        return "You do not have permission to do that!"
 
 class timer: #speedrun timer class
 
@@ -19,8 +20,8 @@ class timer: #speedrun timer class
     
     def start(self,title,ss3,ss3val): #start the timer
         self.started = time.time()
-        ss3.update_acell("A"+str(uf.length(ss3val,0)+1),str(uf.nyctime()))
-        ss3.update_acell("B"+str(uf.length(ss3val,1)+1),title)
+        uf.updateCell(ss3, "A"+str(uf.length(ss3val,0)+1),str(uf.nyctime()))
+        uf.updateCell(ss3, "B"+str(uf.length(ss3val,1)+1),title)
         if self.active:
             self.active = True
             return "timer restarted for speedrun \"%s\"" % title
@@ -31,8 +32,8 @@ class timer: #speedrun timer class
     def stop(self,message,ss3,ss3val): #stop the timer
         if self.active:
             timerTime = uf.readableTime(time.time() - self.started)
-            ss3.update_acell("v"+str(uf.length(ss3val,0)),timerTime)
-            ss3.update_acell("W"+str(uf.length(ss3val,0)),message)
+            uf.updateCell(ss3, "v"+str(uf.length(ss3val,0)),timerTime)
+            uf.updateCell(ss3, "W"+str(uf.length(ss3val,0)),message)
             self.active = False
             return "timer stopped at %s with reason \"%s\"" % (timerTime,message)
         else:
@@ -97,7 +98,7 @@ class timer: #speedrun timer class
         if self.active:
             if uf.isSplit(splits,split) != "":
                 timerTime = uf.readableTime(time.time() - self.started)
-                ss3.update_acell(uf.isSplit(splits,split)+str(uf.length(ss3val,0)),timerTime)
+                uf.updateCell(ss3, uf.isSplit(splits,split)+str(uf.length(ss3val,0)),timerTime)
                 return "split %s has been created" % split
             else:
                 return "I do not recognize that split and thus cannot create it"
@@ -117,3 +118,82 @@ class randomMessages():
 
     def get(self):
         return self.array[random.randint(0,len(self.array)-1)]
+
+class ssTable():
+    def init(self,x,y,ssval):
+        try:
+            int(x)
+            int(y)
+        except:
+            raise Exception("x and y must be integers")
+
+        self.col1 = uf.getFullColumn(ssval,x)
+        self.col2 = uf.getFullColumn(ssval,x+1)
+        self.y = y
+        self.x = x
+
+        for i in range(y-1):
+            self.col1.remove(self.col1[0])
+            self.col2.remove(self.col2[0])
+        
+        for col in [self.col1,self.col2]:
+            while "" in col:
+                col.remove("")
+            #col.remove(col[0])
+
+        for i,col in enumerate(self.col1):
+            self.col1[i] = int(col)
+            
+    def add(self,string):
+        try:
+            self.col1[self.col2.index(string)] += 1
+        except:
+            self.col2.append(string)
+            self.col1.append(1)
+
+    def update(self,ss):
+
+        col1 = self.col1
+        col2 = self.col2
+        
+        #for num in sorted(self.col1,reverse=True):
+        #    col1.append(num)
+        #    col2.append(self.col2[self.col1.index(num)])
+
+        def comp(arg1,arg2):
+            newArg1 = col1[col2.index(arg1)]
+            newArg2 = col1[col2.index(arg2)]
+            if newArg1 > newArg2:
+                return 1
+            if newArg1 < newArg2:
+                return -1
+            if sorted([arg1,arg2])[0] == arg1:
+                return 1
+            if sorted([arg1,arg2])[0] == arg2:
+                return -1
+            return 0
+
+        col2 = sorted(col2, cmp=comp,reverse=True)
+        col1 = sorted(col1,reverse=True)
+        
+        cells = []
+        
+        for i,cell in enumerate(col1):
+            ssCell = ss.cell(self.y+1+i,self.x)
+            ssCell.value = cell
+            cells.append(ssCell)
+
+        for i,cell in enumerate(col2):
+            ssCell = ss.cell(self.y+1+i,self.x+1)
+            ssCell.value = cell
+            cells.append(ssCell)
+            
+        while True:
+            try:
+                ss.update_cells(cells)
+                break
+            except:
+                pass
+        
+        self.col1 = col1
+        self.col2 = col2

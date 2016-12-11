@@ -1,12 +1,103 @@
 channel = "lorgon"
-info = "Brian is just doing some random speedrun practice."
-ops = [u'lorgon', u'ajleece95', u'bergbergberg', u'conedodger240', u'greatscottlp', u'hiboymc', u'jahg1977', u'kinkajou1015', u'skinfan13', u'starrlett20', u'rallekralle11', u'frustbox', u'konotyran', u'mateuszdrwal', u'mbxdllfs']
+info = "Brian is currently not streaming"
 ralle = "*hugs*"
 quote = []
 joke = []
-commands = [
-['!addcommand', '!addcommand <command name> <command text> adds a simple command that displays text when its called. Ops only.', False, False],
-['!removecommand', '!removecommand <command> removes a command created by !addcommand. Ops only.', False, False],
-['!commands', 'displays all available commands', False, False],
-['!help', 'helpception', False, False],
-[u'!test', 'This command returns simple text.', True, True, u'test1']]
+commands = {
+'setperms': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': '!setperms <username> <int> sets permissions for a user. 0:normal 1:helper 2:op',
+ 'perm': 3
+},
+ 'removecommand': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': '!removecommand <command> removes a command created by !addcommand. Ops only.',
+ 'perm': 2
+},
+ 'addcommand': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': '!addcommand <command name> <command text> adds a simple command that displays text when its called. Ops only.',
+ 'perm': 2
+},
+ 'uptime': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': 'Returns the uptime of the stream.',
+ 'perm': 0
+},
+ 'help': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': 'helpception',
+ 'perm': 0
+},
+ 'info': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': '!info returns information about the stream. !info set <info> sets the information. Ops only.',
+ 'perm': 0
+},
+ 'commands': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': 'displays all available commands',
+ 'perm': 0
+},
+ u'abc': {
+'reply': u'+abc',
+ 'removeable': True,
+ 'hidden': False,
+ 'help': 'This command returns simple text.',
+ 'op': 0
+},
+ 'permissions': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': '!permissions returns your permission level. !permissions <username> returns the permissions of that user.',
+ 'perm': 0
+},
+ 'opcommands': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': False,
+ 'help': 'Displays all available opcommands.',
+ 'perm': 0
+},
+ u'def': {
+'reply': u'+def',
+ 'removeable': True,
+ 'hidden': False,
+ 'help': 'This command returns simple text.',
+ 'op': 0
+}
+}
+perms = {#0: normal 1: helper 2: op 3: owner
+u'starrlett20': 2,
+ u'conedodger240': 2,
+ u'hiboymc': 2,
+ u'rallekralle11': 1,
+ u'skinfan13': 2,
+ u'mateuszdrwal': 3,
+ u'bergbergberg': 2,
+ u'greatscottlp': 2,
+ u'konotyran': 1,
+ u'ajleece95': 2,
+ u'mbxdllfs': 2,
+ u'lorgon': 3,
+ u'test': 0,
+ 'edi_j': 1,
+ u'frustbox': 3,
+ u'jahg1977': 2,
+ u'kinkajou1015': 2
+}
