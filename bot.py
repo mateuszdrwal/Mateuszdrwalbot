@@ -1,4 +1,4 @@
-import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string
+import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys
 from oauth2client.service_account import ServiceAccountCredentials
 from utilityFunctions import utilityFunctions
 from urllib2 import urlopen
@@ -81,7 +81,7 @@ class botCommands:
             'help': 'This command returns simple text.',
             'removeable': True,
             'reply': ' '.join(args[2:]),
-            'op': 0,
+            'perm': 0,
             'hidden': False
         }
         save()
@@ -112,11 +112,16 @@ class botCommands:
 
     @staticmethod
     def commands(args,usr):
-        chat("available commands: "+", ".join(prefix+command for command, values in commands.items() if not values["op"] and not values["hidden"])+" for commands for ops do %sopcommands"%(prefix))
-
-    @staticmethod
-    def opcommands(args,usr):
-        chat("available opcommands: "+", ".join(prefix+command for command, values in commands.items() if values["op"] and not values["hidden"]))
+        commandList = []
+        tempCommands = commands
+        tempCommands["info set"] = {"perm":1,"hidden":False}
+        for i,name in [[0,""],[1,"(helper)"],[2,"(op)"],[3,"(owner)"]]:
+            for command,values in tempCommands.items():
+                if values["perm"] == i and not values["hidden"]:
+                    commandList.append(prefix+command+name)
+            
+        chat("Available commands: "+", ".join(commandList))
+        #chat("available commands: "+", ".join(prefix+command for command, values in commands.items() if values["perm"] == 0 and not values["hidden"])+" for commands for permission do %sopcommands"%(prefix))
 
     @staticmethod
     def help(args,usr):
@@ -236,54 +241,23 @@ def isWord(word):
 #--------------------
 def spreadsheetUpdater(): #handles all spreadsheet vars and updating
     global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er
-    ecount = 0
-    er = False
     while True:
         try:
-            def reloadSpreadsheets():
-                global ss,ss2,ss3,ssval,ss2val,ss3val,sss,er
-                try:
-                    ss3 = sss.worksheet("TimerSplits")
-                    ss2 = sss.worksheet("Charts")
-                    ss = sss.worksheet("Data")
-                    ssval = ss.get_all_values()
-                    ss2val = ss2.get_all_values()
-                    ss3val = ss3.get_all_values()
-                except:
-                    er = True
-
-            if not uf.timeout(reloadSpreadsheets, 60):
-                raise Exception("reload timed out")
-
-            if er:
-                er = False
-                raise Exception("error when reloading")
-                
+            ss3 = sss.worksheet("TimerSplits")
+            ss2 = sss.worksheet("Charts")
+            ss = sss.worksheet("Data")
+            ssval = ss.get_all_values()
+            ss2val = ss2.get_all_values()
+            ss3val = ss3.get_all_values()
         except Exception as error:
             import traceback
             traceback.print_exc()
             print("spreadsheet updating failed: "+str(error))
             try:
-                def reauth():
-                    try:
-                        global sss,gs,er
-                        scope = ['https://spreadsheets.google.com/feeds']
-                        credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
-                        gs = gspread.authorize(credentials)
-                        sss = gs.open("brians stream spreadsheet")
-                    except:
-                        er = True
-
-                if not uf.timeout(reauth, 30):
-                    raise Exception("reauth timed out")
-                else:
-                    ss = sss.worksheet("Data")
-                    ssval = ss.get_all_values()
-
-                if er:
-                    er = False
-                    raise Exception("error while reauthing")
-
+                scope = ['https://spreadsheets.google.com/feeds']
+                credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
+                gs = gspread.authorize(credentials)
+                sss = gs.open("brians stream spreadsheet")
                 print("reauthed")
             except Exception as error:
                 print("reauth failed: " + str(error))
@@ -386,7 +360,7 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
             uf.updateCell(ss2, "B6",uf.largest(uf.getColumn(ssval,7)))
             uf.updateCell(ss2, "C6",uf.largest(uf.getColumn(ssval,9)))
         except Exception as error:
-            print error
+            print(error)
             pass
 
 def recordsHandler():
@@ -440,7 +414,7 @@ def responseHandler(): #handles socket responses
                 wordTableAdd.append(isWord(word))
 
         if message.startswith(prefix):
-            print messageSplit[0]
+            print(messageSplit[0])
             try:
                 method = getattr(botCommands, messageSplit[0], False)
             except UnicodeEncodeError:
@@ -458,7 +432,7 @@ def responseHandler(): #handles socket responses
             if command:
                 chat(command["reply"])
 
-def TableUpdater():
+def tableUpdater():
     global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth
     while ss2val == None:
         time.sleep(0.1)
@@ -481,21 +455,16 @@ def TableUpdater():
         wordTable.update(ss2)
 
         time.sleep(10)
-        
+
+def heartbeatHandler():
+    pass
 #--------------------
 #initializing threads
 #--------------------
-thread1 = threading.Thread(target=spreadsheetUpdater)
-thread1.start()
-thread2 = threading.Thread(target=socketUpdater)
-thread2.start()
-thread3 = threading.Thread(target=streamCheck)
-thread3.start()
-thread4 = threading.Thread(target=spreadsheetHandler)
-thread4.start()
-thread5 = threading.Thread(target=recordsHandler)
-thread5.start()
-thread6 = threading.Thread(target=responseHandler)
-thread6.start()
-thread7 = threading.Thread(target=TableUpdater)
-thread7.start()
+threads = []
+for i,func in [[0,spreadsheetUpdater],[1,socketUpdater],[2,streamCheck],[3,spreadsheetHandler],[4,recordsHandler],[5,responseHandler],[6,tableUpdater],[7,heartbeatHandler]]:
+    threads.append(threading.Thread(target=func))
+    threads[i].daemon = True
+    threads[i].start()
+
+os._exit(0)
