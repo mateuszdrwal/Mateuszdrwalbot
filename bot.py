@@ -1,4 +1,6 @@
-import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys
+debug = 0
+
+import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
 from oauth2client.service_account import ServiceAccountCredentials
 from utilityFunctions import utilityFunctions
 from urllib2 import urlopen
@@ -27,6 +29,7 @@ ss2val = None
 dic = enchant.Dict("en_US")
 prefix = "!"
 streamUptime = ""
+shutdown = 0
 
 channel = data.channel
 perms = data.perms
@@ -35,15 +38,20 @@ ralle.info = data.ralle
 joke.load(data.joke)
 quote.load(data.quote)
 commands = data.commands
+if data.savedAt == str(datetime.datetime.date(datetime.datetime.now())):
+    mvd = data.mvd
+    md = data.md
 
 #--------------------
-# configuring socket
+# configuring stuff
 #--------------------
 s = socket.socket()
 s.connect(("irc.twitch.tv", 6667))
 s.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
 s.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
 s.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
+
+logging.basicConfig(filename="logs/%s.log"%str(datetime.datetime.now()),level=logging.INFO)
 
 #--------------------
 #    bot commands
@@ -197,11 +205,48 @@ class botCommands:
         perms[args[1]] = int(args[2])
         chat("user %s has been granted %s permissions."%(args[1],["normal","helper","operator"][int(args[2])]))
 
+    @staticmethod
+    def shutdown(args,usr):
+        global shutdown
+        log("Manual shutdown")
+        chat("Manual shutdown")
+        shutdown = 2
+    
+    @staticmethod
+    def reboot(args,usr):
+        global shutdown
+        log("Manual reboot")
+        chat("Manual reboot")
+        shutdown = 1
+
+    @staticmethod
+    def update(args,usr):
+        global shutdown
+        log("udpate")
+        chat("updating bot...")
+        shutdown = 3
+    
 #--------------------
 #     functions
 #--------------------
-def save():
-    global channel,info,perms,records
+def log(string,level="info"):
+    print(string)
+    if level=="debug":
+        logging.debug(string)
+    if level=="info":
+        logging.info(string)
+    if level=="warning":
+        logging.warning(string)
+    if level=="error":
+        logging.error(string)
+    if level=="critical":
+        logging.critical(string)
+    
+def save(override=False,reboot=True,update=False):
+    global channel,info,perms,records,mvd,md,shutdown
+    if shutdown and not override:
+        log("not saving, about to shut down")
+        return
     try:
         f = open("data.py","w")
         f.write("channel = \""+channel+"\"\n")
@@ -211,10 +256,18 @@ def save():
         f.write("joke = "+str(joke.array)+"\n")
         f.write("commands = "+str(commands).replace("{","{\n").replace(",",",\n").replace("}","\n}")+"\n")
         f.write("perms = "+str(perms).replace("{","{#0: normal 1: helper 2: op 3: owner\n").replace(",",",\n").replace("}","\n}")+"\n")
+        f.write("mvd = "+str(mvd)+"\n")
+        f.write("md = "+str(md)+"\n")
+        f.write("savedAt = \""+str(datetime.datetime.date(datetime.datetime.now()))+"\"\n")
+        f.write("reboot = "+str(reboot)+"\n")
+        f.write("update = "+str(update)+"\n")
         f.close()
-    except:
-        print("saving failed. recovering backup...")
+        log("saved")
+    except Exception as error:
+        log(error)
+        log("saving failed. recovering backup...")
         os.system("sudo cp dataBackup.py data.py")
+        log("backup recovered")
     os.system("sudo cp data.py dataBackup.py")
 
 def chat(msg):
@@ -222,7 +275,7 @@ def chat(msg):
     if msg == lastChat:
         msg = str(msg)+" ."
     s.send(("PRIVMSG #%s :%s\r\n"%(channel,msg)).encode("utf-8"))
-    #print(str(msg)+"\r\n")
+    #log(str(msg)+"\r\n")
     lastChat = msg
 
 def isWord(word):
@@ -240,231 +293,301 @@ def isWord(word):
 #     threads
 #--------------------
 def spreadsheetUpdater(): #handles all spreadsheet vars and updating
-    global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er
-    while True:
-        try:
-            ss3 = sss.worksheet("TimerSplits")
-            ss2 = sss.worksheet("Charts")
-            ss = sss.worksheet("Data")
-            ssval = ss.get_all_values()
-            ss2val = ss2.get_all_values()
-            ss3val = ss3.get_all_values()
-        except Exception as error:
-            import traceback
-            traceback.print_exc()
-            print("spreadsheet updating failed: "+str(error))
+    global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er,shutdown
+    try:
+        while True:
             try:
-                scope = ['https://spreadsheets.google.com/feeds']
-                credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
-                gs = gspread.authorize(credentials)
-                sss = gs.open("brians stream spreadsheet")
-                print("reauthed")
+                ss3 = sss.worksheet("TimerSplits")
+                ss2 = sss.worksheet("Charts")
+                ss = sss.worksheet("Data")
+                ssval = ss.get_all_values()
+                ss2val = ss2.get_all_values()
+                ss3val = ss3.get_all_values()
             except Exception as error:
-                print("reauth failed: " + str(error))
+                log("spreadsheet updating failed: "+str(error))
+                try:
+                    scope = ['https://spreadsheets.google.com/feeds']
+                    credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
+                    gs = gspread.authorize(credentials)
+                    sss = gs.open("brians stream spreadsheet")
+                    log("reauthed")
+                except Exception as error:
+                    log("reauth failed: " + str(error))
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def socketUpdater(): #necessary as socket sometimes randomly stop listening
-    global s
-    socketTimer = time.time()
-    while True:
-        if socketTimer + 3600 < time.time():
-            while True:
-                try:
-                    socketTimer = time.time()
-                    s2 = socket.socket()
-                    s2.connect(("irc.twitch.tv", 6667))
-                    s2.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
-                    s2.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
-                    s2.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
-                    break
-                except:
-                    pass
-            s = s2
-        time.sleep(0.1)
+    global s,shutdown
+    try:
+        socketTimer = time.time()
+        while True:
+            if socketTimer + 3600 < time.time():
+                while True:
+                    try:
+                        socketTimer = time.time()
+                        s2 = socket.socket()
+                        s2.connect(("irc.twitch.tv", 6667))
+                        s2.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
+                        s2.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
+                        s2.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
+                        break
+                    except:
+                        pass
+                s = s2
+            time.sleep(0.1)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def streamCheck(): #handles most stream info like live status and uptime
-    global status,streamInfo,seconds,streamtime,streamUptime
-    while True:
-        streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
-        if streamInfo.get("stream") == None:
-            if status == True:
+    global status,streamInfo,seconds,streamtime,streamUptime,shutdown
+    try:
+        while True:
+            streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
+            if streamInfo.get("stream") == None:
+                if status == True:
+                    status = False
+                    #to execute when stream stops, usualy about 5 minutes late
+                    log("stream Stop\r\n")
+                    chat("stream stop detected, stream was up %s. Thanks for the stream brian!"%uptime)
+                    streamtime += seconds
+                    time.sleep(120) #to prevent buggy twitch api being buggy
                 status = False
-                #to execute when stream stops, usualy about 5 minutes late
-                print("stream Stop\r\n")
-                chat("stream stop detected, stream was up %s. Thanks for the stream brian!"%uptime)
-                streamtime += seconds
-                time.sleep(120) #to prevent buggy twitch api being buggy
-            status = False
-            streamUptime = ""
-        else:
-            if status == False:
+                streamUptime = ""
+            else:
+                if status == False:
+                    status = True
+                    #to execute when stream starts, usualy a minute late
+                    log("stream Start\r\n")
+                    time.sleep(60) #to prevent buggy twitch api being buggy
                 status = True
-                #to execute when stream starts, usualy a minute late
-                print("stream Start\r\n")
-                time.sleep(60) #to prevent buggy twitch api being buggy
-            status = True
-        
-        #timezone converting madness for uptime
-        if status:
-            weirdTime = streamInfo.get("stream").get("created_at")
-            date, times = weirdTime.split("T")
-            times = times.split("Z")
-            h, m, se = times[0].split(":")
-            y, mo, d = date.split("-")
-            dt = datetime.datetime(int(y),int(mo),int(d),int(h),int(m),int(se))
-            start = time.mktime(dt.timetuple())
-            seconds = time.mktime(datetime.datetime.utcfromtimestamp(time.time()).timetuple())-start
-            streamUptime = uf.readableTime(seconds)
+            
+            #timezone converting madness for uptime
+            if status:
+                weirdTime = streamInfo.get("stream").get("created_at")
+                date, times = weirdTime.split("T")
+                times = times.split("Z")
+                h, m, se = times[0].split(":")
+                y, mo, d = date.split("-")
+                dt = datetime.datetime(int(y),int(mo),int(d),int(h),int(m),int(se))
+                start = time.mktime(dt.timetuple())
+                seconds = time.mktime(datetime.datetime.utcfromtimestamp(time.time()).timetuple())-start
+                streamUptime = uf.readableTime(seconds)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def spreadsheetHandler(): #handles all the spreadsheet updating for data
-    global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2
-    spreadsheetTimer = uf.nyctime().date()
-    time.sleep(10)
-    while True:
-        try:
-            if uf.nyctime().date() != spreadsheetTimer: #if its time to update spreadsheet
-                print("new day")
-                strlen = str(uf.length(ssval,0)+1)
-                nostrlen = str(uf.length(ssval,8)+1)
+    global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2,shutdown
+    try:
+        spreadsheetTimer = uf.nyctime().date()
+        time.sleep(10)
+        while True:
+            try:
+                if uf.nyctime().date() != spreadsheetTimer: #if its time to update spreadsheet
+                    log("new day")
+                    strlen = str(uf.length(ssval,0)+1)
+                    nostrlen = str(uf.length(ssval,8)+1)
 
-                uf.uf.updateCell(ss, "M"+nostrlen,"0")
+                    uf.uf.updateCell(ss, "M"+nostrlen,"0")
+                    
+                    if mvd: #if there was a stream today
+                        uf.uf.updateCell(ss, "A"+strlen,str(spreadsheetTimer))
+                        uf.updateCell(ss, "B"+strlen,str(streamtime))
+                        uf.updateCell(ss, "C"+strlen,uf.readableTime(streamtime))
+                        uf.updateCell(ss, "D"+strlen,str(spreadsheetTimer))
+                        uf.updateCell(ss, "E"+strlen,mvd)
+                        uf.updateCell(ss, "F"+strlen,str(spreadsheetTimer))
+                        uf.updateCell(ss, "G"+strlen,md)
+                        uf.updateCell(ss, "M"+nostrlen,"1")
+
+                    uf.updateCell(ss, "H"+nostrlen,str(spreadsheetTimer))
+                    uf.updateCell(ss, "I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
+                    uf.updateCell(ss, "J"+nostrlen,str(spreadsheetTimer))
+                    uf.updateCell(ss, "K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
+                    uf.updateCell(ss, "L"+nostrlen,str(spreadsheetTimer))
+
+                    
+                    spreadsheetTimer = uf.nyctime().date()
+                    mvd = 0
+                    md = 0
+                    log("spreadsheet updated, rebooting bot...")
+                    chat("daily bot reboot...")
+                    shutdown = 1
+
+                uf.updateCell(ss2, "B3",uf.readableTime(uf.largest(uf.getColumn(ssval,2))))
+                uf.updateCell(ss2, "C3",uf.largest(uf.getColumn(ssval,5)))
+                uf.updateCell(ss2, "D3",uf.streak(uf.getColumn(ssval,13)))
+                num = 0
+                for i in range(0,len(uf.getColumn(ssval,2))):
+                    num += int(uf.getColumn(ssval,2)[i])
+                num = num / len(uf.getColumn(ssval,2))
+                uf.updateCell(ss2, "E3",uf.readableTime(num))
+                uf.updateCell(ss2, "B6",uf.largest(uf.getColumn(ssval,7)))
+                uf.updateCell(ss2, "C6",uf.largest(uf.getColumn(ssval,9)))
+            except Exception as error:
+                log(error)
                 
-                if mvd: #if there was a stream today
-                    uf.uf.updateCell(ss, "A"+strlen,str(spreadsheetTimer))
-                    uf.updateCell(ss, "B"+strlen,str(streamtime))
-                    uf.updateCell(ss, "C"+strlen,uf.readableTime(streamtime))
-                    uf.updateCell(ss, "D"+strlen,str(spreadsheetTimer))
-                    uf.updateCell(ss, "E"+strlen,mvd)
-                    uf.updateCell(ss, "F"+strlen,str(spreadsheetTimer))
-                    uf.updateCell(ss, "G"+strlen,md)
-                    uf.updateCell(ss, "M"+nostrlen,"1")
-
-                uf.updateCell(ss, "H"+nostrlen,str(spreadsheetTimer))
-                uf.updateCell(ss, "I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
-                uf.updateCell(ss, "J"+nostrlen,str(spreadsheetTimer))
-                uf.updateCell(ss, "K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
-                uf.updateCell(ss, "L"+nostrlen,str(spreadsheetTimer))
-
-                
-                spreadsheetTimer = uf.nyctime().date()
-                mvd = 0
-                md = 0
-
-            uf.updateCell(ss2, "B3",uf.readableTime(uf.largest(uf.getColumn(ssval,2))))
-            uf.updateCell(ss2, "C3",uf.largest(uf.getColumn(ssval,5)))
-            uf.updateCell(ss2, "D3",uf.streak(uf.getColumn(ssval,13)))
-            num = 0
-            for i in range(0,len(uf.getColumn(ssval,2))):
-                num += int(uf.getColumn(ssval,2)[i])
-            num = num / len(uf.getColumn(ssval,2))
-            uf.updateCell(ss2, "E3",uf.readableTime(num))
-            uf.updateCell(ss2, "B6",uf.largest(uf.getColumn(ssval,7)))
-            uf.updateCell(ss2, "C6",uf.largest(uf.getColumn(ssval,9)))
-        except Exception as error:
-            print(error)
-            pass
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def recordsHandler():
-    global streamInfo,seconds,mvd
-    while True:
-        try:
-            if int(streamInfo.get("stream").get("viewers")) > mvd:
-                    mvd = int(streamInfo.get("stream").get("viewers"))
-            if seconds > records[1]:
-                    records[1] = seconds
-                    save()
-        except:
-            time.sleep(10)
-        time.sleep(0.1)
+    global streamInfo,seconds,mvd,shutdown
+    try:
+        while True:
+            try:
+                if int(streamInfo.get("stream").get("viewers")) > mvd:
+                        mvd = int(streamInfo.get("stream").get("viewers"))
+            except:
+                time.sleep(10)
+            time.sleep(0.1)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def responseHandler(): #handles socket responses
-    global s,commands,md,status,usrTableAdd,wordTableAdd
-    pingTimer = time.time()
-    response = s.recv(1024).decode("utf-8")
-    response = s.recv(1024).decode("utf-8")
-    response = s.recv(1024).decode("utf-8")
-    while True:
+    global s,commands,md,status,usrTableAdd,wordTableAdd,shutdown
+    try:
+        pingTimer = time.time()
         response = s.recv(1024).decode("utf-8")
-        if not response:
-            continue
-        
-        if response == "PING :tmi.twitch.tv\r\n":
-            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-            continue
-        try:
-            username = re.search(r"\w+", response).group(0)
-        except:
-            continue
-        
-        message = CHAT_MSG.sub("", response)
-        message = message.replace("\r\n","")
-        message2,message = message,""
-        
-        for char in message2:
-            if char in string.printable:
-                message += char
-        
-        messageSplit = message.split(" ")
-        messageSplit[0] = messageSplit[0].strip(prefix)
-
-        if status:
-            md += 1
-            for word in message.split(" "):
-                if isWord(word) != "":
-                    usrTableAdd.append(username.lower())
-                wordTableAdd.append(isWord(word))
-
-        if message.startswith(prefix):
-            print(messageSplit[0])
+        response = s.recv(1024).decode("utf-8")
+        response = s.recv(1024).decode("utf-8")
+        while True:
+            response = s.recv(1024).decode("utf-8")
+            if not response:
+                continue
+            
+            if response == "PING :tmi.twitch.tv\r\n":
+                s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+                continue
             try:
-                method = getattr(botCommands, messageSplit[0], False)
-            except UnicodeEncodeError:
-                chat("verry funny %s"%username)
+                username = re.search(r"\w+", response).group(0)
+            except:
                 continue
+            
+            message = CHAT_MSG.sub("", response)
+            message = message.replace("\r\n","")
+            message2,message = message,""
+            
+            for char in message2:
+                if char in string.printable:
+                    message += char
+            
+            messageSplit = message.split(" ")
+            messageSplit[0] = messageSplit[0].strip(prefix)
 
-            if method:
-                if uf.perm(perms,username,commands.get(method.func_name)["perm"]):
-                    method(messageSplit,username)
+            if status:
+                md += 1
+                for word in message.split(" "):
+                    if isWord(word) != "":
+                        usrTableAdd.append(username.lower())
+                    wordTableAdd.append(isWord(word))
+
+            if message.startswith(prefix):
+                log(messageSplit[0])
+                try:
+                    method = getattr(botCommands, messageSplit[0], False)
+                except UnicodeEncodeError:
+                    chat("verry funny %s"%username)
                     continue
-                chat("You do not have permission to use that command!")
-                continue
 
-            command = commands.get(messageSplit[0],False)
-            if command:
-                chat(command["reply"])
+                if method:
+                    if uf.perm(perms,username,commands.get(method.func_name)["perm"]):
+                        method(messageSplit,username)
+                        continue
+                    chat("You do not have permission to use that command!")
+                    continue
+
+                command = commands.get(messageSplit[0],False)
+                if command:
+                    chat(command["reply"])
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def tableUpdater():
-    global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth
-    while ss2val == None:
-        time.sleep(0.1)
-    usrTable.init(10,9,ss2val)
-    wordTable.init(13,9,ss2val)
-    while True:
-        
-        for usr in usrTableAdd:
-            usrTable.add(usr)
+    global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth,shutdown
+    try:
+        while ss2val == None:
+            time.sleep(0.1)
+        usrTable.init(10,9,ss2val)
+        wordTable.init(13,9,ss2val)
+        while True:
+            
+            for usr in usrTableAdd:
+                usrTable.add(usr)
 
-        usrTableAdd = []
-        
-        for word in wordTableAdd:
-            if word != "":
-                wordTable.add(word)
+            usrTableAdd = []
+            
+            for word in wordTableAdd:
+                if word != "":
+                    wordTable.add(word)
 
-        wordTableAdd = []
+            wordTableAdd = []
 
-        usrTable.update(ss2)
-        wordTable.update(ss2)
+            usrTable.update(ss2)
+            wordTable.update(ss2)
 
-        time.sleep(10)
+            time.sleep(10)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
 def heartbeatHandler():
-    pass
+    global shutdown
+    try:
+        time.sleep(5)
+        #raise Exception("testing exception protection")
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+save()
 #--------------------
 #initializing threads
 #--------------------
 threads = []
 for i,func in [[0,spreadsheetUpdater],[1,socketUpdater],[2,streamCheck],[3,spreadsheetHandler],[4,recordsHandler],[5,responseHandler],[6,tableUpdater],[7,heartbeatHandler]]:
-    threads.append(threading.Thread(target=func))
+    threads.append(threading.Thread(target=func,name=func.func_name))
     threads[i].daemon = True
     threads[i].start()
+if data.update:
+    log("Update complete")
+    chat("Update complete")
 
-os._exit(0)
+elif data.reboot:
+    log("Reboot complete")
+    chat("Reboot complete")
+    
+if not debug:
+    while not shutdown:
+        time.sleep(1)
+        
+    if shutdown == 1:
+        log("rebooting bot...")
+        time.sleep(5)
+        save(True,True)
+    elif shutdown == 2:
+        log("shutting down bot...")
+        time.sleep(5)
+        save(True,False)
+    elif shutdown == 3:
+        log("updating down bot...")
+        time.sleep(5)
+        save(True,True,True)
+    else:
+        raise Exception("shutdown variable is neither 1 nor 2 nor 3 at shutdown")
+
+    log("shutdown")
+
+    
