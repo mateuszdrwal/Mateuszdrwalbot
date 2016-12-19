@@ -20,8 +20,8 @@ class timer: #speedrun timer class
     
     def start(self,title,ss3,ss3val): #start the timer
         self.started = time.time()
-        uf.updateCell(ss3, "A"+str(uf.length(ss3val,0)+1),str(uf.nyctime()))
-        uf.updateCell(ss3, "B"+str(uf.length(ss3val,1)+1),title)
+        ss3.update_acell("A"+str(uf.length(ss3val,0)+1),str(uf.nyctime()))
+        ss3.update_acell("B"+str(uf.length(ss3val,1)+1),title)
         if self.active:
             self.active = True
             return "timer restarted for speedrun \"%s\"" % title
@@ -32,8 +32,8 @@ class timer: #speedrun timer class
     def stop(self,message,ss3,ss3val): #stop the timer
         if self.active:
             timerTime = uf.readableTime(time.time() - self.started)
-            uf.updateCell(ss3, "v"+str(uf.length(ss3val,0)),timerTime)
-            uf.updateCell(ss3, "W"+str(uf.length(ss3val,0)),message)
+            ss3.update_acell("v"+str(uf.length(ss3val,0)),timerTime)
+            ss3.update_acell("W"+str(uf.length(ss3val,0)),message)
             self.active = False
             return "timer stopped at %s with reason \"%s\"" % (timerTime,message)
         else:
@@ -98,8 +98,8 @@ class timer: #speedrun timer class
         if self.active:
             if uf.isSplit(splits,split) != "":
                 timerTime = uf.readableTime(time.time() - self.started)
-                uf.updateCell(ss3, uf.isSplit(splits,split)+str(uf.length(ss3val,0)),timerTime)
-                return "split %s has been created" % split
+                ss3.update_acell(uf.isSplit(splits,split)+str(uf.length(ss3val,0)),timerTime)
+                return "split %s has been created at %s" % (split,timerTime)
             else:
                 return "I do not recognize that split and thus cannot create it"
         else:

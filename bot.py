@@ -121,16 +121,16 @@ class botCommands:
     @staticmethod
     def commands(args,usr):
         commandList = []
-        tempCommands = commands
+        tempCommands = commands.copy()
         tempCommands["info set"] = {"perm":1,"hidden":False}
+        tempCommands["timer start/stop/add/remove/split"] = {"perm":1,"hidden":False}
         for i,name in [[0,""],[1,"(helper)"],[2,"(op)"],[3,"(owner)"]]:
             for command,values in tempCommands.items():
                 if values["perm"] == i and not values["hidden"]:
                     commandList.append(prefix+command+name)
             
         chat("Available commands: "+", ".join(commandList))
-        #chat("available commands: "+", ".join(prefix+command for command, values in commands.items() if values["perm"] == 0 and not values["hidden"])+" for commands for permission do %sopcommands"%(prefix))
-
+        
     @staticmethod
     def help(args,usr):
         if args[1:] == []:
@@ -159,6 +159,16 @@ class botCommands:
         
         if args[1] == "set":
             chat(info.set(perms,usr," ".join(args[2:])))
+            save()
+
+    @staticmethod
+    def ralle(args,usr):
+        if args[1:] == []:
+            chat(ralle.info)
+            return
+        
+        if args[1] == "set":
+            chat(ralle.set({'rallekralle11':1},usr," ".join(args[2:])))
             save()
 
     @staticmethod
@@ -225,7 +235,53 @@ class botCommands:
         log("udpate")
         chat("updating bot...")
         shutdown = 3
-    
+
+    @staticmethod
+    def brianstime(args,usr):
+        nyctime1 = json.loads(uf.url("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
+        chat("Brians timezone is now %s"%nyctime1.get("fulldate").replace(" -0500",""))
+
+    @staticmethod
+    def timer(args,usr):
+        global ss3,ss3val,perm
+        if args[1:] == []:
+            chat(timer.status())
+            return
+
+        if not uf.perm(perms,usr,1):
+            chat("You do not have permission to do that!")
+            return
+        
+        if args[1] == "start":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer start <title>")
+                return
+            chat(timer.start(args[2],ss3,ss3val))
+
+        if args[1] == "stop":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer stop <message>")
+                return
+            chat(timer.stop(args[2],ss3,ss3val))
+
+        if args[1] == "add":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer add <seconds>")
+                return
+            chat(timer.add(args[2]))
+
+        if args[1] == "remove":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer remove <seconds>")
+                return
+            chat(timer.remove(args[2]))
+
+        if args[1] == "split":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer split <split>")
+                return
+            chat(timer.split(args[2],ss3,ss3val))
+            
 #--------------------
 #     functions
 #--------------------
@@ -242,7 +298,7 @@ def log(string,level="info"):
     if level=="critical":
         logging.critical(string)
     
-def save(override=False,reboot=True,update=False):
+def save(override=False,reboot=False,update=False):
     global channel,info,perms,records,mvd,md,shutdown
     if shutdown and not override:
         log("not saving, about to shut down")
@@ -254,7 +310,7 @@ def save(override=False,reboot=True,update=False):
         f.write("ralle = \""+ralle.info+"\"\n")
         f.write("quote = "+str(quote.array)+"\n")
         f.write("joke = "+str(joke.array)+"\n")
-        f.write("commands = "+str(commands).replace("{","{\n").replace(",",",\n").replace("}","\n}")+"\n")
+        f.write("commands = "+str(commands).replace("{","{\n").replace("',","',\n").replace("e,","e,\n").replace("},","},\n").replace("0,","0,\n").replace("1,","1,\n").replace("2,","2,\n").replace("3,","3,\n").replace("}","\n}")+"\n")
         f.write("perms = "+str(perms).replace("{","{#0: normal 1: helper 2: op 3: owner\n").replace(",",",\n").replace("}","\n}")+"\n")
         f.write("mvd = "+str(mvd)+"\n")
         f.write("md = "+str(md)+"\n")
@@ -293,9 +349,10 @@ def isWord(word):
 #     threads
 #--------------------
 def spreadsheetUpdater(): #handles all spreadsheet vars and updating
-    global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er,shutdown
+    global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er,shutdown,spreadsheetUpdaterHB
     try:
         while True:
+            spreadsheetUpdaterHB = time.time()
             try:
                 ss3 = sss.worksheet("TimerSplits")
                 ss2 = sss.worksheet("Charts")
@@ -319,10 +376,11 @@ def spreadsheetUpdater(): #handles all spreadsheet vars and updating
         shutdown = 1
 
 def socketUpdater(): #necessary as socket sometimes randomly stop listening
-    global s,shutdown
+    global s,shutdown,socketUpdaterHB
     try:
         socketTimer = time.time()
         while True:
+            socketUpdaterHB = time.time()
             if socketTimer + 3600 < time.time():
                 while True:
                     try:
@@ -343,9 +401,10 @@ def socketUpdater(): #necessary as socket sometimes randomly stop listening
         shutdown = 1
 
 def streamCheck(): #handles most stream info like live status and uptime
-    global status,streamInfo,seconds,streamtime,streamUptime,shutdown
+    global status,streamInfo,seconds,streamtime,streamUptime,shutdown,streamCheckHB
     try:
         while True:
+            streamCheckHB = time.time()
             streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
             if streamInfo.get("stream") == None:
                 if status == True:
@@ -382,34 +441,35 @@ def streamCheck(): #handles most stream info like live status and uptime
         shutdown = 1
 
 def spreadsheetHandler(): #handles all the spreadsheet updating for data
-    global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2,shutdown
+    global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2,shutdown,spreadsheetHandlerHB
     try:
         spreadsheetTimer = uf.nyctime().date()
         time.sleep(10)
         while True:
+            spreadsheetHandlerHB = time.time()
             try:
                 if uf.nyctime().date() != spreadsheetTimer: #if its time to update spreadsheet
                     log("new day")
                     strlen = str(uf.length(ssval,0)+1)
                     nostrlen = str(uf.length(ssval,8)+1)
 
-                    uf.uf.updateCell(ss, "M"+nostrlen,"0")
+                    uf.ss.update_acell("M"+nostrlen,"0")
                     
                     if mvd: #if there was a stream today
-                        uf.uf.updateCell(ss, "A"+strlen,str(spreadsheetTimer))
-                        uf.updateCell(ss, "B"+strlen,str(streamtime))
-                        uf.updateCell(ss, "C"+strlen,uf.readableTime(streamtime))
-                        uf.updateCell(ss, "D"+strlen,str(spreadsheetTimer))
-                        uf.updateCell(ss, "E"+strlen,mvd)
-                        uf.updateCell(ss, "F"+strlen,str(spreadsheetTimer))
-                        uf.updateCell(ss, "G"+strlen,md)
-                        uf.updateCell(ss, "M"+nostrlen,"1")
+                        ss.update_acell("A"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("B"+strlen,str(streamtime))
+                        ss.update_acell("C"+strlen,uf.readableTime(streamtime))
+                        ss.update_acell("D"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("E"+strlen,mvd)
+                        ss.update_acell("F"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("G"+strlen,md)
+                        ss.update_acell("M"+nostrlen,"1")
 
-                    uf.updateCell(ss, "H"+nostrlen,str(spreadsheetTimer))
-                    uf.updateCell(ss, "I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
-                    uf.updateCell(ss, "J"+nostrlen,str(spreadsheetTimer))
-                    uf.updateCell(ss, "K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
-                    uf.updateCell(ss, "L"+nostrlen,str(spreadsheetTimer))
+                    ss.update_acell("H"+nostrlen,str(spreadsheetTimer))
+                    ss.update_acell("I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
+                    ss.update_acell("J"+nostrlen,str(spreadsheetTimer))
+                    ss.update_acell("K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
+                    ss.update_acell("L"+nostrlen,str(spreadsheetTimer))
 
                     
                     spreadsheetTimer = uf.nyctime().date()
@@ -419,16 +479,16 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
                     chat("daily bot reboot...")
                     shutdown = 1
 
-                uf.updateCell(ss2, "B3",uf.readableTime(uf.largest(uf.getColumn(ssval,2))))
-                uf.updateCell(ss2, "C3",uf.largest(uf.getColumn(ssval,5)))
-                uf.updateCell(ss2, "D3",uf.streak(uf.getColumn(ssval,13)))
+                ss2.update_acell("B3",uf.readableTime(uf.largest(uf.getColumn(ssval,2))))
+                ss2.update_acell("C3",uf.largest(uf.getColumn(ssval,5)))
+                ss2.update_acell("D3",uf.streak(uf.getColumn(ssval,13)))
                 num = 0
                 for i in range(0,len(uf.getColumn(ssval,2))):
                     num += int(uf.getColumn(ssval,2)[i])
                 num = num / len(uf.getColumn(ssval,2))
-                uf.updateCell(ss2, "E3",uf.readableTime(num))
-                uf.updateCell(ss2, "B6",uf.largest(uf.getColumn(ssval,7)))
-                uf.updateCell(ss2, "C6",uf.largest(uf.getColumn(ssval,9)))
+                ss2.update_acell("E3",uf.readableTime(num))
+                ss2.update_acell("B6",uf.largest(uf.getColumn(ssval,7)))
+                ss2.update_acell("C6",uf.largest(uf.getColumn(ssval,9)))
             except Exception as error:
                 log(error)
                 
@@ -438,9 +498,10 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
         shutdown = 1
 
 def recordsHandler():
-    global streamInfo,seconds,mvd,shutdown
+    global streamInfo,seconds,mvd,shutdown,recordsHandlerHB
     try:
         while True:
+            recordsHandlerHB = time.time()
             try:
                 if int(streamInfo.get("stream").get("viewers")) > mvd:
                         mvd = int(streamInfo.get("stream").get("viewers"))
@@ -453,13 +514,14 @@ def recordsHandler():
         shutdown = 1
 
 def responseHandler(): #handles socket responses
-    global s,commands,md,status,usrTableAdd,wordTableAdd,shutdown
+    global s,commands,md,status,usrTableAdd,wordTableAdd,shutdown,responseHandlerHB
     try:
         pingTimer = time.time()
-        response = s.recv(1024).decode("utf-8")
-        response = s.recv(1024).decode("utf-8")
-        response = s.recv(1024).decode("utf-8")
+        #response = s.recv(1024).decode("utf-8")
+        #response = s.recv(1024).decode("utf-8")
+        #response = s.recv(1024).decode("utf-8")
         while True:
+            responseHandlerHB = time.time()
             response = s.recv(1024).decode("utf-8")
             if not response:
                 continue
@@ -509,18 +571,22 @@ def responseHandler(): #handles socket responses
                 if command:
                     chat(command["reply"])
     except Exception as error:
+        import traceback
+        traceback.print_exc()
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
 def tableUpdater():
-    global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth,shutdown
+    global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth,shutdown,tableUpdaterHB
+    tableUpdaterHB = time.time()
     try:
         while ss2val == None:
             time.sleep(0.1)
         usrTable.init(10,9,ss2val)
         wordTable.init(13,9,ss2val)
         while True:
+            tableUpdaterHB = time.time()
             
             for usr in usrTableAdd:
                 usrTable.add(usr)
@@ -543,11 +609,19 @@ def tableUpdater():
         shutdown = 1
 
 def heartbeatHandler():
-    global shutdown
+    global shutdown,spreadsheetUpdaterHB,socketUpdaterHB,streamCheckHB,spreadsheetHandlerHB,recordsHandlerHB,responseHandlerHB,tableUpdaterHB
+    time.sleep(15)
     try:
-        time.sleep(5)
-        #raise Exception("testing exception protection")
+        while True:
+            for heartbeat,name in [(spreadsheetUpdaterHB,"spreadsheetUpdater"),(socketUpdaterHB,"socketUpdater"),(streamCheckHB,"streamCheck"),(spreadsheetHandlerHB,"spreadsheetHandler"),(recordsHandlerHB,"recordsHandler"),(responseHandlerHB,"responseHandler"),(tableUpdaterHB,"tableUpdater")]:
+                if time.time() - heartbeat > 300:
+                    log("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
+                    chat("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
+                    shutdown = 1
+                    time.sleep(100)
     except Exception as error:
+        import traceback
+        traceback.print_exc()
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
@@ -561,6 +635,7 @@ for i,func in [[0,spreadsheetUpdater],[1,socketUpdater],[2,streamCheck],[3,sprea
     threads.append(threading.Thread(target=func,name=func.func_name))
     threads[i].daemon = True
     threads[i].start()
+
 if data.update:
     log("Update complete")
     chat("Update complete")

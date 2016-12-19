@@ -80,23 +80,3 @@ class utilityFunctions:
             if array[i] > num:
                 num = array[i]
         return num
-
-    def updateCell(self,ss,pos,val):
-        while True:
-            def cellUpdater(pos,val,ss):
-                while True:
-                    try:
-                        ss.update_acell(pos,val)
-                        break
-                    except:
-                        pass
-            if self.timeout(cellUpdater,60,arguments=(pos,val,ss)):
-                break
-
-    def timeout(self, func, sec, arguments=()): #pass a function as first argument. tries to execute function in given time, if it doesnt finish returns false. otherwise returns true
-        thread = threading.Thread(target=func,args=arguments)
-        thread.start()
-        thread.join(sec)
-        if thread.isAlive():
-            return False
-        return True
