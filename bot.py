@@ -1,552 +1,668 @@
-import socket,time,re,threading,json,time,math,datetime,config,os,gspread,loginInfo
-from urllib2 import urlopen
+debug = 0
+
+import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
 from oauth2client.service_account import ServiceAccountCredentials
+from utilityFunctions import utilityFunctions
+from urllib2 import urlopen
 
-time.sleep(1)
+#--------------------
+#    variables
+#--------------------
+uf = utilityFunctions()
+info = classes.info()
+ralle = classes.info()
+timer = classes.timer()
+joke = classes.randomMessages()
+quote = classes.randomMessages()
+usrTable = classes.ssTable()
+wordTable = classes.ssTable()
 
-channel = config.channel
-info = config.info
-ops = config.ops
-records = config.records #viewers, time streamed
-ralle = config.ralle
-
-kill = False
 CHAT_MSG=re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-status = False
-start = 0
-nyctime = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
-t = datetime.datetime(nyctime.get("year"),nyctime.get("month"),nyctime.get("day"))
 streamtime = 0
 mvd = 0
-timer = 0
-timer2 = 0
-delay = 720
-timerStatus = 0
+md = 0
 lastChat = ""
-splits = [
-	[["ks","king slime"],"C"],
-	[["eoc","eye of cthulhu"],"D"],
-	[["eow","boc","eater of worlds","brain of cthulhu"],"E"],
-	[["qb","queen bee"],"F"],
-	[["s","skeletron"],"G"],
-	[["wof","wall of flesh","hardmode"],"H"],
-	[["td","d","the destroyer","destroyer"],"I"],
-	[["sp","skeletron prime"],"J"],
-	[["tt","t","the twins","twins"],"K"],
-	[["p","plantera"],"L"],
-	[["g","golem"],"M"],
-	[["df","duke fishron"],"N"],
-	[["lc","lunatic cultist"],"O"],
-	[["ml","moon lord"],"P"],
-	[["gi","ga","goblin invasion","goblin army"],"Q"],
-	[["pi","pirate invasion"],"R"],
-	[["mm","martian madness"],"S"],
-	[["ne","nights edge","night's edge"],"T"],
-	[["tb","terra blade"],"U"]]
+status = False
+usrTableAdd = []
+wordTableAdd = []
+ss2val = None
+dic = enchant.Dict("en_US")
+prefix = "!"
+streamUptime = ""
+shutdown = 0
 
+channel = data.channel
+perms = data.perms
+info.info = data.info
+ralle.info = data.ralle
+joke.load(data.joke)
+quote.load(data.quote)
+commands = data.commands
+if data.savedAt == str(datetime.datetime.date(datetime.datetime.now())):
+    mvd = data.mvd
+    md = data.md
+
+#--------------------
+# configuring stuff
+#--------------------
 s = socket.socket()
 s.connect(("irc.twitch.tv", 6667))
 s.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
 s.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
 s.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
 
-scope = ['https://spreadsheets.google.com/feeds']
-credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
-gs = gspread.authorize(credentials)
-ss = gs.open("brians stream spreadsheet")
-ss3 = ss.worksheet("TimerSplits")
-ss2 = ss.worksheet("Charts")
-ss = ss.worksheet("Data")
+logging.basicConfig(filename="logs/%s.log"%str(datetime.datetime.now()),level=logging.INFO)
 
-def isSplit(splitName):
-    global splits
-    for i in range(0,len(splits)):
-        for j in range(0,len(splits[i][0])):
-            if splitName == splits[i][0][j]:
-                return splits[i][1]
-    return ""
+#--------------------
+#    bot commands
+#--------------------
+class botCommands:
 
-def readableTime(intt):
-    m, sec = divmod(intt, 60)
-    h, m = divmod(m, 60)
-    h = int(h)
-    m = int(m)
-    sec = int(sec)
-    if m < 10:
-        m = "0"+str(m)
-    if sec < 10:
-        sec = "0"+str(sec)
-    h = str(h)
-    return "%s:%s:%s"%(h, m, sec)
+    @staticmethod
+    def addcommand(args,usr):
+        if args[1:] == []:
+            chat("Command name cannot be empty.")
+            return
+            
+        if args[1].startswith(prefix):
+            args[1] = args[1].strip(prefix)
 
-def pos(int):
-    return length(ss.get_all_values(),int-1)
-    
-def length(array,int):
-##    invArray = []
-##    array1 = []
-##    for i in range(0,len(array)):
-##        for j in range(0, len(array[i])):
-##            array1.append(array[j][i])
-##        invArray.append(array1)
-##        array1 = []
-##        
-##    return invArray
-    num = 0
-    try:
-        while True:
-            if array[num][int] == "":
-                raise IndexError
-            num += 1
-    except IndexError:
-        return num
+        cmd = args[1]
+        args[1] = ""
+        for char in cmd:
+            if char in string.ascii_letters+string.digits:
+                args[1] += char
+            
+        if args[1] in commands:
+            chat("That command already exists.")
+            return
 
-def getColumn(int):
-    spreadsheet = ss.get_all_values()
-    column = []
-    for i in range(1,pos(int)):
-        column.append(spreadsheet[i][int-1])
-    return column
+        if len(args[1]) > 20:
+            chat("The command cannot be longer than 20 chars.")
+            return
 
-def streak(array):
-    intt = 0
-    rec = 0
-    for i in range(0,len(array)):
-        array[i] = int(array[i])
-        if array[i] != 0:
-            intt += 1
+        if args[2:] == []:
+            chat("The text cannot be empty.")
+            return
+
+        commands[args[1]] = {
+            'help': 'This command returns simple text.',
+            'removeable': True,
+            'reply': ' '.join(args[2:]),
+            'perm': 0,
+            'hidden': False
+        }
+        save()
+        chat("Command %s has been added with message \"%s\"."%(prefix+args[1]," ".join(args[2:])))
+
+    @staticmethod
+    def removecommand(args,usr):
+        if args[1:] == []:
+            chat("Command name cannot be empty.")
+            return
+        
+        if args[1].startswith(prefix):
+            args[1] = args[1].strip(prefix)
+            
+        command = commands.get(args[1],False)
+
+        if not command:
+            chat("%s is not a command and thus cannot be removed."%(prefix+args[1]))
+            return
+
+        if not command["removeable"]:
+            chat("%s is not removeable."%(prefix+args[1]))
+            return
+
+        commands.pop(args[1])
+        save()
+        chat("Command %s has been removed."%(prefix+args[1]))
+
+    @staticmethod
+    def commands(args,usr):
+        commandList = []
+        tempCommands = commands.copy()
+        tempCommands["info set"] = {"perm":1,"hidden":False}
+        tempCommands["timer start/stop/add/remove/split"] = {"perm":1,"hidden":False}
+        for i,name in [[0,""],[1,"(helper)"],[2,"(op)"],[3,"(owner)"]]:
+            for command,values in tempCommands.items():
+                if values["perm"] == i and not values["hidden"]:
+                    commandList.append(prefix+command+name)
+            
+        chat("Available commands: "+", ".join(commandList))
+        
+    @staticmethod
+    def help(args,usr):
+        if args[1:] == []:
+            chat("Bot created by mateuszdrwal. For available commands do !commands. For help with a specific command do !help <command>.")
+            return
+        
+        cmdHelp = commands.get(args[1],False)
+        if not cmdHelp:
+            chat("That command does not exist.")
+            return
+
+        chat(cmdHelp["help"])
+
+    @staticmethod
+    def uptime(args,usr):
+        if streamUptime == "":
+            chat("Stream is offline")
+            return
+        chat("Stream has been up for %s"%streamUptime)
+
+    @staticmethod
+    def info(args,usr):
+        if args[1:] == []:
+            chat(info.info)
+            return
+        
+        if args[1] == "set":
+            chat(info.set(perms,usr," ".join(args[2:])))
+            save()
+
+    @staticmethod
+    def ralle(args,usr):
+        if args[1:] == []:
+            chat(ralle.info)
+            return
+        
+        if args[1] == "set":
+            chat(ralle.set({'rallekralle11':1},usr," ".join(args[2:])))
+            save()
+
+    @staticmethod
+    def permissions(args,usr):
+        if args[1:] == []:
+            permissions = perms.get(usr,0)
         else:
-            intt = 0
-        if intt > rec:
-            rec = intt
-    return rec
+            permissions = perms.get(args[1],0)
+            usr = args[1]
+        
+        if permissions == 0:
+            chat("%s does not have special permissions."%usr)
+            return
 
-def save():
-    global channel,info,ops
-    f = open("config.py","w")
-    f.write("channel = \""+channel+"\"\n")
-    f.write("info = \""+info+"\"\n")
-    f.write("ops = "+str(ops)+"\n")
-    f.write("records = "+str(records)+"\n")
-    f.write("ralle = \""+str(ralle)+"\"\n")
-    f.close()
+        if permissions == 1:
+            chat("%s is a helper."%usr)
+            return
+
+        if permissions == 2:
+            chat("%s is an op."%usr)
+            return
+
+        if permissions == 3:
+            chat("%s is an owner."%usr)
+            return
+
+    @staticmethod
+    def setperms(args,usr):
+
+        if args[1:] == []:
+            chat("The first argument must be a username.")
+            return
+        
+        try:
+            int(args[2])
+        except:
+            chat("The second argument must be an int. 0:normal 1:helper 2:op")
+            return
+
+        if int(args[2]) > 2:
+            chat("Owner permissions are hardcoded. You can not set them.")
+            return
+
+        perms[args[1]] = int(args[2])
+        chat("user %s has been granted %s permissions."%(args[1],["normal","helper","operator"][int(args[2])]))
+
+    @staticmethod
+    def shutdown(args,usr):
+        global shutdown
+        log("Manual shutdown")
+        chat("Manual shutdown")
+        shutdown = 2
+    
+    @staticmethod
+    def reboot(args,usr):
+        global shutdown
+        log("Manual reboot")
+        chat("Manual reboot")
+        shutdown = 1
+
+    @staticmethod
+    def update(args,usr):
+        global shutdown
+        log("udpate")
+        chat("updating bot...")
+        shutdown = 3
+
+    @staticmethod
+    def brianstime(args,usr):
+        nyctime1 = json.loads(uf.url("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
+        chat("Brians timezone is now %s"%nyctime1.get("fulldate").replace(" -0500",""))
+
+    @staticmethod
+    def timer(args,usr):
+        global ss3,ss3val,perm
+        if args[1:] == []:
+            chat(timer.status())
+            return
+
+        if not uf.perm(perms,usr,1):
+            chat("You do not have permission to do that!")
+            return
+        
+        if args[1] == "start":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer start <title>")
+                return
+            chat(timer.start(args[2],ss3,ss3val))
+
+        if args[1] == "stop":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer stop <message>")
+                return
+            chat(timer.stop(args[2],ss3,ss3val))
+
+        if args[1] == "add":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer add <seconds>")
+                return
+            chat(timer.add(args[2]))
+
+        if args[1] == "remove":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer remove <seconds>")
+                return
+            chat(timer.remove(args[2]))
+
+        if args[1] == "split":
+            if len(args[1:]) < 2:
+                chat("Usage: !timer split <split>")
+                return
+            chat(timer.split(args[2],ss3,ss3val))
+            
+#--------------------
+#     functions
+#--------------------
+def log(string,level="info"):
+    print(string)
+    if level=="debug":
+        logging.debug(string)
+    if level=="info":
+        logging.info(string)
+    if level=="warning":
+        logging.warning(string)
+    if level=="error":
+        logging.error(string)
+    if level=="critical":
+        logging.critical(string)
+    
+def save(override=False,reboot=False,update=False):
+    global channel,info,perms,records,mvd,md,shutdown
+    if shutdown and not override:
+        log("not saving, about to shut down")
+        return
+    try:
+        f = open("data.py","w")
+        f.write("channel = \""+channel+"\"\n")
+        f.write("info = \""+info.info+"\"\n")
+        f.write("ralle = \""+ralle.info+"\"\n")
+        f.write("quote = "+str(quote.array)+"\n")
+        f.write("joke = "+str(joke.array)+"\n")
+        f.write("commands = "+str(commands).replace("{","{\n").replace("',","',\n").replace("e,","e,\n").replace("},","},\n").replace("0,","0,\n").replace("1,","1,\n").replace("2,","2,\n").replace("3,","3,\n").replace("}","\n}")+"\n")
+        f.write("perms = "+str(perms).replace("{","{#0: normal 1: helper 2: op 3: owner\n").replace(",",",\n").replace("}","\n}")+"\n")
+        f.write("mvd = "+str(mvd)+"\n")
+        f.write("md = "+str(md)+"\n")
+        f.write("savedAt = \""+str(datetime.datetime.date(datetime.datetime.now()))+"\"\n")
+        f.write("reboot = "+str(reboot)+"\n")
+        f.write("update = "+str(update)+"\n")
+        f.close()
+        log("saved")
+    except Exception as error:
+        log(error)
+        log("saving failed. recovering backup...")
+        os.system("sudo cp dataBackup.py data.py")
+        log("backup recovered")
+    os.system("sudo cp data.py dataBackup.py")
 
 def chat(msg):
     global s,channel,lastChat
     if msg == lastChat:
         msg = str(msg)+" ."
     s.send(("PRIVMSG #%s :%s\r\n"%(channel,msg)).encode("utf-8"))
-    #print(str(msg)+"\r\n")
+    #log(str(msg)+"\r\n")
     lastChat = msg
 
-def streamStart():
-    global start
-    print("stream Start\r\n")
-    time.sleep(60)
-
-def streamStop():
-    global start,uptime,seconds,streamtime
-    print("stream Stop\r\n")
-    chat("stream stop detected, stream was up %s. Thanks for the stream brian!"%uptime)
-    streamtime += seconds
-    start = 0
-    time.sleep(120)
-
-def isOp(nick):
-    global ops
-    for i in range(0,len(ops)):
-        if ops[i] == nick:
-            return True
-    return False
-
-def dayCheck():
-    global t,streamtime,uptime2,ss,ss2,ss3,gs,mvd,nyctime
-    times = 0
-    while True:
-        try:
-            nyctime = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
-            gs = gspread.authorize(credentials)
-            ss = gs.open("brians stream spreadsheet")
-            ss3 = ss.worksheet("TimerSplits")
-            ss2 = ss.worksheet("Charts")
-            ss = ss.worksheet("Data")
-            if t != datetime.datetime(nyctime.get("year"),nyctime.get("month"),nyctime.get("day")):
-                m, sec = divmod(streamtime, 60)
-                h, m = divmod(m, 60)
-                uptime2 = "%sh%sm%ss"%(int(h), int(m), int(sec))
-                ss.update_acell("A"+str(pos(1)+1),str(t).replace("-","/").split(" ")[0])
-                ss.update_acell("C"+str(pos(1)),streamtime)
-                if uptime2 != "0h0m0s":
-                    ss.update_acell("D"+str(pos(1)),uptime2)
-                
-                if streamtime != 0:
-                    ss.update_acell("E"+str(pos(5)+1),str(t).replace("-","/").split(" ")[0])
-                    ss.update_acell("G"+str(pos(5)),streamtime)
-                    ss.update_acell("H"+str(pos(5)),uptime2)
-                    
-                if mvd != 0:
-                    ss.update_acell("I"+str(pos(9)+1),str(t).replace("-","/").split(" ")[0])
-                    ss.update_acell("J"+str(pos(9)),mvd)
-
-                ss.update_acell("K"+str(pos(11)+1),str(t).replace("-","/").split(" ")[0])
-                ss.update_acell("L"+str(pos(11)),int(json.loads(urlopen("https://api.twitch.tv/kraken/channels/lorgon?client_id=9int14hk7irvo127euzochvd0ukqomt").read()).get("views")))
-
-                time.sleep(1000)
-                nyctime = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
-                t = datetime.datetime(nyctime.get("year"),nyctime.get("month"),nyctime.get("day"))
-                streamtime = 0
-                mvd = 0
-
-                
-                
-            m, sec = divmod(records[1], 60)
-            h, m = divmod(m, 60)
-            uptime2 = "%sh%sm%ss"%(int(h), int(m), int(sec))
-
-            col = getColumn(7)
-            summ = 0
-            for i in range(0,len(getColumn(7))):
-                summ = int(col[i]) + summ
-            summ = summ/(pos(7)-1)
-            
-            ss2.update_acell("B3", uptime2)
-            ss2.update_acell("C3", records[0])
-            ss2.update_acell("D3", streak(getColumn(3)))
-
-            m, sec = divmod(summ, 60)
-            h, m = divmod(m, 60)
-            uptime2 = "%sh%sm%ss"%(int(h), int(m), int(sec))
-
-            ss2.update_acell("E3", uptime2)
-            
-        except Exception as inst:
-            times += 1
-            print("error "+str(times))
-            print inst
-    if kill:
-            exit()
-    time.sleep(1)
+def isWord(word):
+    allowedChars = string.ascii_letters
+    word2 = ""
+    for char in word:
+        if char in allowedChars:
+            word2 += char
     
-def recordCheck():
-    global streamInfo,records,kill,seconds,mvd
-    while True:
-        try:
-            if int(streamInfo.get("stream").get("viewers")) > records[0]:
-                records[0] = int(streamInfo.get("stream").get("viewers"))
-                save()
-            if int(streamInfo.get("stream").get("viewers")) > mvd:
-                mvd = int(streamInfo.get("stream").get("viewers"))
-            if seconds > records[1]:
-                records[1] = seconds
-                save()
-        except:
-            time.sleep(0.001)
-        if kill:
-            exit()
-        time.sleep(0.1)
+    if dic.check(word2):
+        return word2
+    return ""
 
-def streamCheck():
-    global status,streamInfo,kill,seconds
-    while True:
-        try:
-            streamInfo = json.loads(urlopen("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId), timeout = 15).read().decode('utf-8'))
+#--------------------
+#     threads
+#--------------------
+def spreadsheetUpdater(): #handles all spreadsheet vars and updating
+    global ss,ss2,ss3,ssval,ss2val,ss3val,gs,sss,er,shutdown,spreadsheetUpdaterHB
+    try:
+        while True:
+            spreadsheetUpdaterHB = time.time()
+            try:
+                ss3 = sss.worksheet("TimerSplits")
+                ss2 = sss.worksheet("Charts")
+                ss = sss.worksheet("Data")
+                ssval = ss.get_all_values()
+                ss2val = ss2.get_all_values()
+                ss3val = ss3.get_all_values()
+            except Exception as error:
+                log("spreadsheet updating failed: "+str(error))
+                try:
+                    scope = ['https://spreadsheets.google.com/feeds']
+                    credentials = ServiceAccountCredentials.from_json_keyfile_name(loginInfo.gspread, scope)
+                    gs = gspread.authorize(credentials)
+                    sss = gs.open("brians stream spreadsheet")
+                    log("reauthed")
+                except Exception as error:
+                    log("reauth failed: " + str(error))
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+def socketUpdater(): #necessary as socket sometimes randomly stop listening
+    global s,shutdown,socketUpdaterHB
+    try:
+        socketTimer = time.time()
+        while True:
+            socketUpdaterHB = time.time()
+            if socketTimer + 3600 < time.time():
+                while True:
+                    try:
+                        socketTimer = time.time()
+                        s2 = socket.socket()
+                        s2.connect(("irc.twitch.tv", 6667))
+                        s2.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
+                        s2.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
+                        s2.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
+                        break
+                    except:
+                        pass
+                s = s2
+            time.sleep(0.1)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+def streamCheck(): #handles most stream info like live status and uptime
+    global status,streamInfo,seconds,streamtime,streamUptime,shutdown,streamCheckHB
+    try:
+        while True:
+            streamCheckHB = time.time()
+            streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
             if streamInfo.get("stream") == None:
                 if status == True:
                     status = False
-                    streamStop()
+                    #to execute when stream stops, usualy about 5 minutes late
+                    log("stream Stop\r\n")
+                    chat("stream stop detected, stream was up %s. Thanks for the stream brian!"%uptime)
+                    streamtime += seconds
+                    time.sleep(120) #to prevent buggy twitch api being buggy
                 status = False
+                streamUptime = ""
             else:
                 if status == False:
                     status = True
-                    streamStart()
+                    #to execute when stream starts, usualy a minute late
+                    log("stream Start\r\n")
+                    time.sleep(60) #to prevent buggy twitch api being buggy
                 status = True
-            weirdTime = streamInfo.get("stream").get("created_at")
-            date, times = weirdTime.split("T")
-            times = times.split("Z")
-            h, m, se = times[0].split(":")
-            y, mo, d = date.split("-")
-            dt = datetime.datetime(int(y),int(mo),int(d),int(h),int(m),int(se))
-            start = time.mktime(dt.timetuple())
-            seconds = time.mktime(datetime.datetime.utcfromtimestamp(time.time()).timetuple())-start
-            m, sec = divmod(seconds, 60)
-            h, m = divmod(m, 60)
-            uptime = "%sh%sm%ss"%(h, m, sec)
-        except:
-            time.sleep(0.001)
-        if kill:
-            exit()
-        time.sleep(0.1)
+            
+            #timezone converting madness for uptime
+            if status:
+                weirdTime = streamInfo.get("stream").get("created_at")
+                date, times = weirdTime.split("T")
+                times = times.split("Z")
+                h, m, se = times[0].split(":")
+                y, mo, d = date.split("-")
+                dt = datetime.datetime(int(y),int(mo),int(d),int(h),int(m),int(se))
+                start = time.mktime(dt.timetuple())
+                seconds = time.mktime(datetime.datetime.utcfromtimestamp(time.time()).timetuple())-start
+                streamUptime = uf.readableTime(seconds)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
-def responseHandler():
-    global ss3,timerStatus,timer2,timer,ralle,records,response,message,username,s,channel,start,seconds,info,streamInfo,kill,uptime,status
-    while True:
-        response = s.recv(1024).decode("utf-8")
-        if response == "PING :tmi.twitch.tv\r\n":
-            s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-        else:
-            username = re.search(r"\w+", response).group(0)
+def spreadsheetHandler(): #handles all the spreadsheet updating for data
+    global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2,shutdown,spreadsheetHandlerHB
+    try:
+        spreadsheetTimer = uf.nyctime().date()
+        time.sleep(10)
+        while True:
+            spreadsheetHandlerHB = time.time()
+            try:
+                if uf.nyctime().date() != spreadsheetTimer: #if its time to update spreadsheet
+                    log("new day")
+                    strlen = str(uf.length(ssval,0)+1)
+                    nostrlen = str(uf.length(ssval,8)+1)
+
+                    uf.ss.update_acell("M"+nostrlen,"0")
+                    
+                    if mvd: #if there was a stream today
+                        ss.update_acell("A"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("B"+strlen,str(streamtime))
+                        ss.update_acell("C"+strlen,uf.readableTime(streamtime))
+                        ss.update_acell("D"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("E"+strlen,mvd)
+                        ss.update_acell("F"+strlen,str(spreadsheetTimer))
+                        ss.update_acell("G"+strlen,md)
+                        ss.update_acell("M"+nostrlen,"1")
+
+                    ss.update_acell("H"+nostrlen,str(spreadsheetTimer))
+                    ss.update_acell("I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
+                    ss.update_acell("J"+nostrlen,str(spreadsheetTimer))
+                    ss.update_acell("K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
+                    ss.update_acell("L"+nostrlen,str(spreadsheetTimer))
+
+                    
+                    spreadsheetTimer = uf.nyctime().date()
+                    mvd = 0
+                    md = 0
+                    log("spreadsheet updated, rebooting bot...")
+                    chat("daily bot reboot...")
+                    shutdown = 1
+
+                ss2.update_acell("B3",uf.readableTime(uf.largest(uf.getColumn(ssval,2))))
+                ss2.update_acell("C3",uf.largest(uf.getColumn(ssval,5)))
+                ss2.update_acell("D3",uf.streak(uf.getColumn(ssval,13)))
+                num = 0
+                for i in range(0,len(uf.getColumn(ssval,2))):
+                    num += int(uf.getColumn(ssval,2)[i])
+                num = num / len(uf.getColumn(ssval,2))
+                ss2.update_acell("E3",uf.readableTime(num))
+                ss2.update_acell("B6",uf.largest(uf.getColumn(ssval,7)))
+                ss2.update_acell("C6",uf.largest(uf.getColumn(ssval,9)))
+            except Exception as error:
+                log(error)
+                
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+def recordsHandler():
+    global streamInfo,seconds,mvd,shutdown,recordsHandlerHB
+    try:
+        while True:
+            recordsHandlerHB = time.time()
+            try:
+                if int(streamInfo.get("stream").get("viewers")) > mvd:
+                        mvd = int(streamInfo.get("stream").get("viewers"))
+            except:
+                time.sleep(10)
+            time.sleep(0.1)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+def responseHandler(): #handles socket responses
+    global s,commands,md,status,usrTableAdd,wordTableAdd,shutdown,responseHandlerHB
+    try:
+        pingTimer = time.time()
+        #response = s.recv(1024).decode("utf-8")
+        #response = s.recv(1024).decode("utf-8")
+        #response = s.recv(1024).decode("utf-8")
+        while True:
+            responseHandlerHB = time.time()
+            response = s.recv(1024).decode("utf-8")
+            if not response:
+                continue
+            
+            if response == "PING :tmi.twitch.tv\r\n":
+                s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+                continue
+            try:
+                username = re.search(r"\w+", response).group(0)
+            except:
+                continue
+            
             message = CHAT_MSG.sub("", response)
+            message = message.replace("\r\n","")
+            message2,message = message,""
             
+            for char in message2:
+                if char in string.printable:
+                    message += char
             
+            messageSplit = message.split(" ")
+            messageSplit[0] = messageSplit[0].strip(prefix)
+
+            if status:
+                md += 1
+                for word in message.split(" "):
+                    if isWord(word) != "":
+                        usrTableAdd.append(username.lower())
+                    wordTableAdd.append(isWord(word))
+
+            if message.startswith(prefix):
+                log(messageSplit[0])
+                try:
+                    method = getattr(botCommands, messageSplit[0], False)
+                except UnicodeEncodeError:
+                    chat("verry funny %s"%username)
+                    continue
+
+                if method:
+                    if uf.perm(perms,username,commands.get(method.func_name)["perm"]):
+                        method(messageSplit,username)
+                        continue
+                    chat("You do not have permission to use that command!")
+                    continue
+
+                command = commands.get(messageSplit[0],False)
+                if command:
+                    chat(command["reply"])
+    except Exception as error:
+        import traceback
+        traceback.print_exc()
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
+
+def tableUpdater():
+    global usrTable,wordTable,usrTableAdd,wordTableAdd,ss2val,auth,shutdown,tableUpdaterHB
+    tableUpdaterHB = time.time()
+    try:
+        while ss2val == None:
+            time.sleep(0.1)
+        usrTable.init(10,9,ss2val)
+        wordTable.init(13,9,ss2val)
+        while True:
+            tableUpdaterHB = time.time()
             
-            if message == "!info\r\n":
-                chat(info)
+            for usr in usrTableAdd:
+                usrTable.add(usr)
+
+            usrTableAdd = []
             
-            elif message.split(" ")[0] == "!info" and message.split(" ")[1] == "set":
-                if isOp(username):
-                    info = message.split(" ",2)[2].split("\r\n")[0]
-                    chat("Info successfully changed to "+info)
-                    save()
-                else:
-                    chat("You do not have permission to do that!")
-            
-            elif message == "!uptime\r\n":
-                if status == True:
-                    weirdTime = streamInfo.get("stream").get("created_at")
-                    date, times = weirdTime.split("T")
-                    times = times.split("Z")
-                    h, m, se = times[0].split(":")
-                    y, mo, d = date.split("-")
-                    dt = datetime.datetime(int(y),int(mo),int(d),int(h),int(m),int(se))
-                    start = time.mktime(dt.timetuple())
-                    seconds = time.mktime(datetime.datetime.utcfromtimestamp(time.time()).timetuple())-start
-                    m, sec = divmod(seconds, 60)
-                    h, m = divmod(m, 60)
-                    uptime = "%sh%sm%ss"%(int(h), int(m), int(sec))
-                    chat("stream has been up for %s"%uptime)
-                else:
-                    chat("stream is offline")
-        
-            elif message == "!ping\r\n":
-                chat("pong")
+            for word in wordTableAdd:
+                if word != "":
+                    wordTable.add(word)
 
-            elif message.split(" ")[0] == "!reoice":
-                chat("Reoice %s!"%(message.split(" ")[1]).split("\r\n")[0])
+            wordTableAdd = []
 
-            elif message == "!help\r\n":
-                chat("Bot created by mateuszdrwal. !commands for commands.")
+            usrTable.update(ss2)
+            wordTable.update(ss2)
 
-            elif message == "!commands\r\n":
-                chat("!help, !opcommands, !info, !uptime, !ping, !reoice, !records, !shamelessplug, !briansstuff, !lifefruit, !fastcardgen, !torches, !briansspeedruns, !stats, !briantime, !timer, !splits, !leafwings")
+            time.sleep(10)
+    except Exception as error:
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
-            elif message == "!amiop\r\n":
-                if isOp(username):
-                    chat(username + " is indeed Op!")
-                else:
-                    chat(username + " is not Op.")
+def heartbeatHandler():
+    global shutdown,spreadsheetUpdaterHB,socketUpdaterHB,streamCheckHB,spreadsheetHandlerHB,recordsHandlerHB,responseHandlerHB,tableUpdaterHB
+    time.sleep(15)
+    try:
+        while True:
+            for heartbeat,name in [(spreadsheetUpdaterHB,"spreadsheetUpdater"),(socketUpdaterHB,"socketUpdater"),(streamCheckHB,"streamCheck"),(spreadsheetHandlerHB,"spreadsheetHandler"),(recordsHandlerHB,"recordsHandler"),(responseHandlerHB,"responseHandler"),(tableUpdaterHB,"tableUpdater")]:
+                if time.time() - heartbeat > 300:
+                    log("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
+                    chat("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
+                    shutdown = 1
+                    time.sleep(100)
+    except Exception as error:
+        import traceback
+        traceback.print_exc()
+        log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
+        shutdown = 1
 
-            elif message.split(" ")[0] == "!op":
-                if isOp(username):
-                    if not isOp(message.split(" ")[1].split("\r\n")[0].lower()):
-                        ops.append(message.split(" ")[1].split("\r\n")[0].lower())
-                        chat(message.split(" ")[1].split("\r\n")[0]+" has been Oped!")
-                        save()
-                    else:
-                        chat("They are alredy op!")
-                else:
-                    chat("You do not have permission to do that!")
-
-            elif message == "!ops\r\n":
-                chat(ops)
-            #elif
-            elif message.split(" ")[0] == "!deop":
-                if message.split(" ")[1].split("\r\n")[0].lower() == "mateuszdrwal":
-                    chat("Nice try")
-                else:
-                    if isOp(username):
-                        try:
-                            ops.remove(message.split(" ")[1].split("\r\n")[0])
-                            chat(message.split(" ")[1].split("\r\n")[0] + " has been Deoped!")
-                            save()
-                        except:
-                            chat(message.split(" ")[1].split("\r\n")[0] + " is not Oped!")
-                    else:
-                        chat("You do not have permission to do that!")
-
-            elif message == "!ralle\r\n":
-                if username != "mbxdllfs":
-                    chat(ralle)
-                else:
-                    chat("Hug?")
-                    
-            elif message == "!records\r\n":
-                m1, sec1 = divmod(records[1], 60)
-                h1, m1 = divmod(m1, 60)
-                uptime1 = "%sh%sm%ss"%(h1, m1, sec1)
-                chat("brians stream records(18 oct 2016 - now): viewers: "+str(records[0])+" most time streamed: "+uptime1)
-
-            elif message == "!shamelessplug\r\n":
-                chat("sub to the creator of this bot: TheMCmateuszdrwal")
-
-            elif message == "!briansstuff\r\n":
-                chat("youtube.com/user/lorgon111 twitter.com/lorgon111 or @lorgon111")
-
-##            elif message == "!reboot\r\n":
-##                if isOp(username):
-##                    chat(".me disappears")
-##                    kill = True
-##                    os.system("sudo ./start.sh")
-##                else:
-##                    chat("You do not have permission to do that!")
-
-            elif message == "!opcommands\r\n":
-                chat("!op, !deop, !info set, !reboot, !shutdown, !timer start/stop/add/remove/split")
-
-            elif message == "!shutdown\r\n":
-                if isOp(username):
-                    chat(".me disappears")
-                    kill = True
-                else:
-                    chat("You do not have permission to do that!")
-
-            elif message == "!lifefruit\r\n":
-                chat("Lifefruit, Yum!")
-
-            elif message == "!fastcardgen\r\n":
-                chat("tulululululululululup! zingzangzum!")
-
-            elif message == "!torches\r\n":
-                chat("torches, torches, torches!")
-
-            elif message == "!briansspeedruns\r\n":
-                chat("speedrun.com/user/Lorgon111")
-                
-            elif message.split(" ")[0] == "!ralle" and message.split(" ")[1] == "set":
-                if username == "rallekralle11":
-                    ralle = message.split(" ",2)[2]
-                    save()
-                    chat("!ralle successfully changed to "+ralle)
-                else:
-                    chat("You do not have permission to do that!")
-
-            elif message == "!fart\r\n":
-                chat("*mbxdllfs farts*")
-                
-            elif message == "!stats\r\n":
-                chat("goo.gl/RkGAic")
-
-            elif message == "!briantime\r\n":
-                nyctime1 = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
-                chat("Brians timezone is now at %s:%s:%s"%(nyctime1.get("hours"),nyctime1.get("minutes"),nyctime1.get("seconds")))
-
-            elif message == "!timer\r\n":
-                if timer != 0:
-                    chat("the timer is now at "+readableTime(time.time() - timer))
-                else:
-                    chat("timer is not counting")
-
-            elif message == "!timer start\r\n":
-                chat("Depreacticated. instead use \"!timer start <speedrun category/title>\"")
-            
-            elif message.split(" ")[0] == "!timer" and message.split(" ")[1] == "start":
-                if isOp(username):
-                    timer69 = timer
-                    timer = time.time()
-                    timer2 = -495
-                    nyctime1 = json.loads(urlopen("https://script.google.com/macros/s/AKfycbyd5AcbAnWi2Yn0xhFRbyzS4qMq1VucMVgVvhul5XqS9HkAyJY/exec?tz=America/New_York").read())
-                    temp = ss3.get_all_values()
-                    ss3.update_acell("A"+str(length(temp,0)+1),str(datetime.datetime(int(nyctime1.get("year")),int(nyctime1.get("month")),int(nyctime1.get("day")),int(nyctime1.get("hours")),int(nyctime1.get("minutes")),int(nyctime1.get("seconds")))).replace("-","/"))
-                    ss3.update_acell("B"+str(length(temp,1)+1),message.split(" ",2)[2].split("\r\n")[0])
-                    timerStatus = 0
-                    if timer69 == 0:
-                        chat("timer started for speedrun \"%s\"" % message.split(" ",2)[2].split("\r\n")[0])
-                    else:
-                        chat("timer restarted for speedrun \"%s\"" % message.split(" ",2)[2].split("\r\n")[0])
-
-                else:
-                    chat("You do not have permission to do that!")
-
-            elif message == "!timer stop\r\n":
-                if isOp(username):
-                    if timer != 0:
-                        timerTime = readableTime(time.time() - timer)
-                        ss3.update_acell("v"+str(length(ss3.get_all_values(),0)),timerTime)
-                        chat("timer stopped at "+timerTime)
-                        timer = 0
-                        timerStatus = 0
-                    else:
-                        chat("timer is not counting")
-                else:
-                    chat("You do not have permission todefhmost- do that!")
-
-            elif message.split(" ")[0] == "!timer" and message.split(" ")[1] == "add":
-                if isOp(username):
-                    if timer != 0:
-                        try:
-                            timer -= int(message.split(" ")[2])
-                            chat("added "+str(int(message.split(" ")[2]))+" seconds to the timer")
-                        except ValueError:
-                            chat("That is not a valid integer!")
-                    else:
-                        chat("timer is not counting")
-                else:
-                    chat("You do not have permission to do that!")
-
-            elif message.split(" ")[0] == "!timer" and message.split(" ")[1] == "remove":
-                if isOp(username):
-                    if timer != 0:
-                        try:
-                            timer += int(message.split(" ")[2])
-                            chat("removed "+str(int(message.split(" ")[2]))+" seconds from the timer")
-                        except ValueError:
-                            chat("That is not a valid integer!")
-                    else:
-                        chat("timer is not counting")
-                else:
-                    chat("You do not have permission to do that!")
-            elif message.split(" ")[0] == "!timer" and message.split(" ")[1] == "split":
-                splitName = message.split(" ",2)[2].split("\r\n")[0].lower()
-                if isOp(username):
-                    if timer != 0:
-                        if isSplit(splitName) != "":
-                            timerTime = readableTime(time.time() - timer)
-                            ss3.update_acell(isSplit(splitName)+str(length(ss3.get_all_values(),0)),timerTime)
-                            chat("split %s has been created"%splitName)
-                        else:
-                            chat("I do not recognize that split and thus cannot create it")
-                    else:
-                        chat("timer is not counting")
-                else:
-                    chat("You do not have permission to do that!")
-                    
-            elif message == "!splits\r\n":
-                chat("goo.gl/BVVJAL")
-
-            elif message == "!leafwings\r\n":
-                chat("\"GO VISIT LEAFWINGS DEALER\"")
-        time.sleep(0.1)
-        #print("1")
-        if kill:
-            exit()
-
-def autoChat():
-    global timer,timer2,kill,timerStatus
-    while True:
-        if timer != 0:
-            if (time.time() - timer)-delay > timer2:
-                igt = (time.time() - timer)/1440
-                igt = igt - int(igt)
-                if timerStatus == 0:
-                    chat("@lorgon the timer is now at "+readableTime(time.time() - timer)+" midday")
-                    timerStatus = 1
-                else:
-                    chat("@lorgon the timer is now at "+readableTime(time.time() - timer)+" midnight")
-                    timerStatus = 0
-                    
-                timer2 = time.time() - timer
-        if kill:
-            exit()
-        time.sleep(0.01)
-        
-#chat(".me appears")
-thread1 = threading.Thread(target=responseHandler)
-thread1.start()
-thread2 = threading.Thread(target=streamCheck)
-thread2.start()
-thread3 = threading.Thread(target=recordCheck)
-thread3.start()
-thread4 = threading.Thread(target=dayCheck)
-thread4.start()
-#thread5 = threading.Thread(target=autoChat)
-#thread5.start()
 save()
+#--------------------
+#initializing threads
+#--------------------
+threads = []
+for i,func in [[0,spreadsheetUpdater],[1,socketUpdater],[2,streamCheck],[3,spreadsheetHandler],[4,recordsHandler],[5,responseHandler],[6,tableUpdater],[7,heartbeatHandler]]:
+    threads.append(threading.Thread(target=func,name=func.func_name))
+    threads[i].daemon = True
+    threads[i].start()
+
+if data.update:
+    log("Update complete")
+    chat("Update complete")
+
+elif data.reboot:
+    log("Reboot complete")
+    chat("Reboot complete")
+    
+if not debug:
+    while not shutdown:
+        time.sleep(1)
+        
+    if shutdown == 1:
+        log("rebooting bot...")
+        time.sleep(5)
+        save(True,True)
+    elif shutdown == 2:
+        log("shutting down bot...")
+        time.sleep(5)
+        save(True,False)
+    elif shutdown == 3:
+        log("updating down bot...")
+        time.sleep(5)
+        save(True,True,True)
+    else:
+        raise Exception("shutdown variable is neither 1 nor 2 nor 3 at shutdown")
+
+    log("shutdown")
+
+    

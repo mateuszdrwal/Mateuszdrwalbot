@@ -1,7 +1,7 @@
 __pycache__
 *.pyc
 *.json
-start.sh
-update.sh
 loginInfo.py
 error.txt
+dataBackup.py
+*.log
