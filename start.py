@@ -29,6 +29,9 @@ try:
     f.write("savedAt = \""+data.savedAt+"\"\n")
     f.write("reboot = False\n")
     f.write("update = False\n")
+    f.write("timerActive = "+str(data.timerActive)+"\n")
+    f.write("timerStarted = "+str(data.timerStarted)+"\n")
+    f.write("wiki = \""+data.wiki+"\"\n")
     f.close()
     log("saved")
 except Exception as error:

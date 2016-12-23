@@ -1,6 +1,6 @@
 debug = 0
 
-import classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
+import requests,classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
 from oauth2client.service_account import ServiceAccountCredentials
 from utilityFunctions import utilityFunctions
 from urllib2 import urlopen
@@ -38,6 +38,9 @@ ralle.info = data.ralle
 joke.load(data.joke)
 quote.load(data.quote)
 commands = data.commands
+timer.started = data.timerStarted
+timer.active = data.timerActive
+wiki = data.wiki
 if data.savedAt == str(datetime.datetime.date(datetime.datetime.now())):
     mvd = data.mvd
     md = data.md
@@ -281,7 +284,34 @@ class botCommands:
                 chat("Usage: !timer split <split>")
                 return
             chat(timer.split(args[2],ss3,ss3val))
+
+    @staticmethod
+    def wiki(args,usr):
+        global wiki
+        if args[1:] == []:
+            chat("usage: !wiki <atricle>")
+            return
+
+        if args[1] == "set":
+            if not uf.perm(perms,usr,1):
+                chat("You do not have permission to do that!")
+                return
             
+            if requests.get("http://%s.gamepedia.com"%args[2]).url == "http://www.gamepedia.com/":
+                chat("could not find that wiki on gamepedia")
+                return
+
+            chat("successfully set the %s wiki as the wiki"%args[2])
+            wiki = args[2]
+            save()
+            return
+
+        searchResult = requests.get("http://%s.gamepedia.com/api.php?action=opensearch&search=%s"%(wiki," ".join(args[1:]))).json()
+        if searchResult[3] == []:
+            chat("No results for that query were found.")
+            return
+
+        chat("I found an article about %s:%s"%(searchResult[1][0],searchResult[3][0]))
 #--------------------
 #     functions
 #--------------------
@@ -299,7 +329,7 @@ def log(string,level="info"):
         logging.critical(string)
     
 def save(override=False,reboot=False,update=False):
-    global channel,info,perms,records,mvd,md,shutdown
+    global channel,info,perms,records,mvd,md,shutdown,timer
     if shutdown and not override:
         log("not saving, about to shut down")
         return
@@ -317,6 +347,9 @@ def save(override=False,reboot=False,update=False):
         f.write("savedAt = \""+str(datetime.datetime.date(datetime.datetime.now()))+"\"\n")
         f.write("reboot = "+str(reboot)+"\n")
         f.write("update = "+str(update)+"\n")
+        f.write("timerActive = "+str(timer.active)+"\n")
+        f.write("timerStarted = "+str(timer.started)+"\n")
+        f.write("wiki = \""+wiki+"\"\n")
         f.close()
         log("saved")
     except Exception as error:
@@ -444,7 +477,8 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
     global spreadsheetTimer,streamtime,ss,ssval,mvd,md,ss2,shutdown,spreadsheetHandlerHB
     try:
         spreadsheetTimer = uf.nyctime().date()
-        time.sleep(10)
+        while ss2val == None:
+            time.sleep(0.1)
         while True:
             spreadsheetHandlerHB = time.time()
             try:
@@ -453,7 +487,7 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
                     strlen = str(uf.length(ssval,0)+1)
                     nostrlen = str(uf.length(ssval,8)+1)
 
-                    uf.ss.update_acell("M"+nostrlen,"0")
+                    ss.update_acell("M"+nostrlen,"0")
                     
                     if mvd: #if there was a stream today
                         ss.update_acell("A"+strlen,str(spreadsheetTimer))
@@ -602,7 +636,7 @@ def tableUpdater():
             usrTable.update(ss2)
             wordTable.update(ss2)
 
-            time.sleep(10)
+            time.sleep(3500)
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
@@ -613,12 +647,13 @@ def heartbeatHandler():
     time.sleep(15)
     try:
         while True:
-            for heartbeat,name in [(spreadsheetUpdaterHB,"spreadsheetUpdater"),(socketUpdaterHB,"socketUpdater"),(streamCheckHB,"streamCheck"),(spreadsheetHandlerHB,"spreadsheetHandler"),(recordsHandlerHB,"recordsHandler"),(responseHandlerHB,"responseHandler"),(tableUpdaterHB,"tableUpdater")]:
+            for heartbeat,name in [(spreadsheetUpdaterHB,"spreadsheetUpdater"),(socketUpdaterHB,"socketUpdater"),(streamCheckHB,"streamCheck"),(spreadsheetHandlerHB,"spreadsheetHandler"),(recordsHandlerHB,"recordsHandler"),(responseHandlerHB,"responseHandler")]:
                 if time.time() - heartbeat > 300:
-                    log("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
-                    chat("thread %s has not sent a heartbeat for 5 minutes, attempting reboot...")
+                    log("thread %s has not sent a heartbeat for 5 minutes, attempting reboot..."%name)
+                    chat("thread %s has not sent a heartbeat for 5 minutes, attempting reboot..."%name)
                     shutdown = 1
                     time.sleep(100)
+            time.sleep(1)
     except Exception as error:
         import traceback
         traceback.print_exc()

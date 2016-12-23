@@ -4,7 +4,14 @@ ralle = "*hugs*"
 quote = []
 joke = []
 commands = {
-u'briansspeedruns': {
+u'wiki': {
+'reply': u'',
+ 'removeable': False,
+ 'hidden': False,
+ 'perm': 0,
+ 'help': '!wiki <article> finds a wiki article from the currently selected wiki.'
+},
+ u'briansspeedruns': {
 'reply': u'speedrun.com/user/Lorgon111',
  'removeable': True,
  'hidden': False,
@@ -25,12 +32,12 @@ u'briansspeedruns': {
  'perm': 2,
  'help': '!removecommand <command> removes a command created by !addcommand. Ops only.'
 },
- u'timer': {
-'reply': u'',
- 'removeable': False,
+ u'shamelessplug': {
+'reply': u'Sub to the creator of this bot: TheMCmateuszdrwal',
+ 'removeable': True,
  'hidden': False,
  'perm': 0,
- 'help': 'A timer for brians terraria speedruns. !timer for current time. !timer start/stop/add/remove/split for Helpers only'
+ 'help': 'pls'
 },
  u'shutdown': {
 'reply': u'',
@@ -46,12 +53,12 @@ u'briansspeedruns': {
  'perm': 0,
  'help': 'Links to brians social media and youtube'
 },
- 'ralle': {
+ 'help': {
 'reply': '',
  'removeable': False,
- 'hidden': True,
+ 'hidden': False,
  'perm': 0,
- 'help': 'Same as !info but only settable by rallekralle11'
+ 'help': 'helpception'
 },
  'uptime': {
 'reply': '',
@@ -66,13 +73,6 @@ u'briansspeedruns': {
  'hidden': False,
  'perm': 0,
  'help': 'Returns a link to a spreadsheet with many stats from the streams'
-},
- 'help': {
-'reply': '',
- 'removeable': False,
- 'hidden': False,
- 'perm': 0,
- 'help': 'helpception'
 },
  u'ping': {
 'reply': u'pong',
@@ -130,6 +130,13 @@ u'briansspeedruns': {
  'perm': 0,
  'help': 'Dont question it'
 },
+ 'ralle': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': True,
+ 'perm': 0,
+ 'help': 'Same as !info but only settable by rallekralle11'
+},
  u'torches': {
 'reply': u'torches, torches, torches!',
  'removeable': True,
@@ -158,6 +165,13 @@ u'briansspeedruns': {
  'perm': 0,
  'help': 'Displays all available commands'
 },
+ u'github': {
+'reply': u'help develop the bot: https://github.com/mateuszdrwal/Mateuszdrwalbot',
+ 'removeable': True,
+ 'hidden': False,
+ 'perm': 0,
+ 'help': 'This command returns simple text.'
+},
  u'splits': {
 'reply': u'goo.gl/BVVJAL',
  'removeable': True,
@@ -165,12 +179,12 @@ u'briansspeedruns': {
  'perm': 0,
  'help': 'A link to the spreadsheet where all the splits from the bots timer are stored'
 },
- u'shamelessplug': {
-'reply': u'Sub to the creator of this bot: TheMCmateuszdrwal',
- 'removeable': True,
+ u'timer': {
+'reply': u'',
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
- 'help': 'pls'
+ 'help': 'A timer for brians terraria speedruns. !timer for current time. !timer start/stop/add/remove/split for Helpers only'
 },
  u'leafwings': {
 'reply': u'GO VISIT LEAFWINGS DEALER',
@@ -183,24 +197,27 @@ u'briansspeedruns': {
 perms = {#0: normal 1: helper 2: op 3: owner
 u'starrlett20': 2,
  u'conedodger240': 2,
+ u'hiboymc': 2,
  u'rallekralle11': 1,
  u'skinfan13': 2,
- u'jahg1977': 2,
+ u'mateuszdrwal': 3,
  u'bergbergberg': 2,
  u'greatscottlp': 2,
- u'kinkajou1015': 2,
+ u'konotyran': 1,
  u'ajleece95': 2,
- u'frustbox': 3,
  u'mbxdllfs': 2,
  u'lorgon': 3,
  u'test': 0,
- u'hiboymc': 2,
- u'mateuszdrwal': 3,
- u'konotyran': 1,
- 'edi_j': 1
+ 'edi_j': 1,
+ u'frustbox': 3,
+ u'jahg1977': 2,
+ u'kinkajou1015': 2
 }
 mvd = 0
 md = 0
-savedAt = "2016-12-19"
+savedAt = "2016-12-23"
 reboot = False
 update = False
+timerActive = False
+timerStarted = 1482406893.8
+wiki = "terraria"
