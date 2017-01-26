@@ -1,9 +1,11 @@
-debug = 0
+from __future__ import division
+debug = 1
 
-import requests,classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
+import traceback,requests,classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
 from oauth2client.service_account import ServiceAccountCredentials
 from utilityFunctions import utilityFunctions
 from urllib2 import urlopen
+
 
 #--------------------
 #    variables
@@ -31,7 +33,7 @@ prefix = "!"
 streamUptime = ""
 shutdown = 0
 
-channel = data.channel
+channel = int(json.loads(uf.url("https://api.twitch.tv/kraken/users?login=%s&client_id=%s&api_version=5"%(data.channelName, loginInfo.twitchApiId)).read().decode('utf-8')).get("users")[0].get("_id"))
 perms = data.perms
 info.info = data.info
 ralle.info = data.ralle
@@ -44,6 +46,7 @@ wiki = data.wiki
 if data.savedAt == str(datetime.datetime.date(datetime.datetime.now())):
     mvd = data.mvd
     md = data.md
+    streamtime = data.streamtime
 
 #--------------------
 # configuring stuff
@@ -52,7 +55,7 @@ s = socket.socket()
 s.connect(("irc.twitch.tv", 6667))
 s.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
 s.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
-s.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
+s.send(("JOIN #%s\r\n"%data.channelName).encode("utf-8"))
 
 logging.basicConfig(filename="logs/%s.log"%str(datetime.datetime.now()),level=logging.INFO)
 
@@ -312,10 +315,18 @@ class botCommands:
             return
 
         chat("I found an article about %s:%s"%(searchResult[1][0],searchResult[3][0]))
+
+    @staticmethod
+    def crash(args,usr):
+        if not uf.perm(perms,usr,3):
+            print("https://goo.gl/21YA1b")
+        raise Exception("Manual debug crash")
+    
 #--------------------
 #     functions
 #--------------------
 def log(string,level="info"):
+    string = str(datetime.datetime.now())+": "+string
     print(string)
     if level=="debug":
         logging.debug(string)
@@ -335,7 +346,7 @@ def save(override=False,reboot=False,update=False):
         return
     try:
         f = open("data.py","w")
-        f.write("channel = \""+channel+"\"\n")
+        f.write("channelName = \""+data.channelName+"\"\n")
         f.write("info = \""+info.info+"\"\n")
         f.write("ralle = \""+ralle.info+"\"\n")
         f.write("quote = "+str(quote.array)+"\n")
@@ -344,6 +355,7 @@ def save(override=False,reboot=False,update=False):
         f.write("perms = "+str(perms).replace("{","{#0: normal 1: helper 2: op 3: owner\n").replace(",",",\n").replace("}","\n}")+"\n")
         f.write("mvd = "+str(mvd)+"\n")
         f.write("md = "+str(md)+"\n")
+        f.write("streamtime = "+str(streamtime)+"\n")
         f.write("savedAt = \""+str(datetime.datetime.date(datetime.datetime.now()))+"\"\n")
         f.write("reboot = "+str(reboot)+"\n")
         f.write("update = "+str(update)+"\n")
@@ -363,7 +375,7 @@ def chat(msg):
     global s,channel,lastChat
     if msg == lastChat:
         msg = str(msg)+" ."
-    s.send(("PRIVMSG #%s :%s\r\n"%(channel,msg)).encode("utf-8"))
+    s.send(("PRIVMSG #%s :%s\r\n"%(data.channelName,msg)).encode("utf-8"))
     #log(str(msg)+"\r\n")
     lastChat = msg
 
@@ -405,6 +417,7 @@ def spreadsheetUpdater(): #handles all spreadsheet vars and updating
                     log("reauth failed: " + str(error))
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -422,14 +435,16 @@ def socketUpdater(): #necessary as socket sometimes randomly stop listening
                         s2.connect(("irc.twitch.tv", 6667))
                         s2.send(("PASS %s\r\n"%loginInfo.twitchPass).encode("utf-8"))
                         s2.send(("NICK %s\r\n"%loginInfo.twitchUsername).encode("utf-8"))
-                        s2.send(("JOIN #%s\r\n"%channel).encode("utf-8"))
+                        s2.send(("JOIN #%s\r\n"%channelName).encode("utf-8"))
                         break
-                    except:
-                        pass
+                    except Exception as error:
+                        log("failed reloading socket: %s"%str(error),"error")
+                        log(traceback.format_exc(),"error")
                 s = s2
             time.sleep(0.1)
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -438,13 +453,13 @@ def streamCheck(): #handles most stream info like live status and uptime
     try:
         while True:
             streamCheckHB = time.time()
-            streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
+            streamInfo = json.loads(uf.url("https://api.twitch.tv/kraken/streams/%s?client_id=%s&api_version=5"%(channel, loginInfo.twitchApiId)).read().decode('utf-8'))
             if streamInfo.get("stream") == None:
                 if status == True:
                     status = False
                     #to execute when stream stops, usualy about 5 minutes late
                     log("stream Stop\r\n")
-                    chat("stream stop detected, stream was up %s. Thanks for the stream brian!"%uptime)
+                    chat("stream stopped, stream was up %s. Thanks for the stream brian!"%streamUptime)
                     streamtime += seconds
                     time.sleep(120) #to prevent buggy twitch api being buggy
                 status = False
@@ -454,6 +469,7 @@ def streamCheck(): #handles most stream info like live status and uptime
                     status = True
                     #to execute when stream starts, usualy a minute late
                     log("stream Start\r\n")
+                    chat("1, 2? 1, 2? brian is streaming!")
                     time.sleep(60) #to prevent buggy twitch api being buggy
                 status = True
             
@@ -470,6 +486,7 @@ def streamCheck(): #handles most stream info like live status and uptime
                 streamUptime = uf.readableTime(seconds)
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -489,26 +506,27 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
 
                     ss.update_acell("M"+nostrlen,"0")
                     
-                    if mvd: #if there was a stream today
+                    if streamtime: #if there was a stream today
                         ss.update_acell("A"+strlen,str(spreadsheetTimer))
                         ss.update_acell("B"+strlen,str(streamtime))
                         ss.update_acell("C"+strlen,uf.readableTime(streamtime))
                         ss.update_acell("D"+strlen,str(spreadsheetTimer))
                         ss.update_acell("E"+strlen,mvd)
                         ss.update_acell("F"+strlen,str(spreadsheetTimer))
-                        ss.update_acell("G"+strlen,md)
+                        ss.update_acell("G"+strlen,int(md/(streamtime/60/60)))
                         ss.update_acell("M"+nostrlen,"1")
 
                     ss.update_acell("H"+nostrlen,str(spreadsheetTimer))
-                    ss.update_acell("I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
+                    ss.update_acell("I"+nostrlen,int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/%s?client_id=%s&api_version=5"%(channel,loginInfo.twitchApiId)).read()).get("views"))-int(ss.acell("K"+str(int(nostrlen)-1)).value))#dont question the readability, it works
                     ss.update_acell("J"+nostrlen,str(spreadsheetTimer))
-                    ss.update_acell("K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/lorgon?client_id=%s"%loginInfo.twitchApiId).read()).get("views"))))
+                    ss.update_acell("K"+nostrlen,str(int(json.loads(uf.url("https://api.twitch.tv/kraken/channels/%s?client_id=%s&api_version=5"%(channel,loginInfo.twitchApiId)).read()).get("views"))))
                     ss.update_acell("L"+nostrlen,str(spreadsheetTimer))
 
                     
                     spreadsheetTimer = uf.nyctime().date()
                     mvd = 0
                     md = 0
+                    streamtime = 0
                     log("spreadsheet updated, rebooting bot...")
                     chat("daily bot reboot...")
                     shutdown = 1
@@ -524,10 +542,12 @@ def spreadsheetHandler(): #handles all the spreadsheet updating for data
                 ss2.update_acell("B6",uf.largest(uf.getColumn(ssval,7)))
                 ss2.update_acell("C6",uf.largest(uf.getColumn(ssval,9)))
             except Exception as error:
-                log(error)
+                pass
+                #log(error)
                 
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -544,19 +564,18 @@ def recordsHandler():
             time.sleep(0.1)
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
 def responseHandler(): #handles socket responses
-    global s,commands,md,status,usrTableAdd,wordTableAdd,shutdown,responseHandlerHB
+    global method,s,commands,md,status,usrTableAdd,wordTableAdd,shutdown,responseHandlerHB
     try:
         pingTimer = time.time()
-        #response = s.recv(1024).decode("utf-8")
-        #response = s.recv(1024).decode("utf-8")
-        #response = s.recv(1024).decode("utf-8")
         while True:
             responseHandlerHB = time.time()
             response = s.recv(1024).decode("utf-8")
+            #print(response)
             if not response:
                 continue
             
@@ -605,9 +624,8 @@ def responseHandler(): #handles socket responses
                 if command:
                     chat(command["reply"])
     except Exception as error:
-        import traceback
-        traceback.print_exc()
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -639,6 +657,7 @@ def tableUpdater():
             time.sleep(3500)
     except Exception as error:
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 
@@ -647,6 +666,9 @@ def heartbeatHandler():
     time.sleep(15)
     try:
         while True:
+            if shutdown:
+                time.sleep(10)
+                continue
             for heartbeat,name in [(spreadsheetUpdaterHB,"spreadsheetUpdater"),(socketUpdaterHB,"socketUpdater"),(streamCheckHB,"streamCheck"),(spreadsheetHandlerHB,"spreadsheetHandler"),(recordsHandlerHB,"recordsHandler"),(responseHandlerHB,"responseHandler")]:
                 if time.time() - heartbeat > 300:
                     log("thread %s has not sent a heartbeat for 5 minutes, attempting reboot..."%name)
@@ -658,6 +680,7 @@ def heartbeatHandler():
         import traceback
         traceback.print_exc()
         log("error in thread "+threading.currentThread().name+": "+str(error),"error")
+        log(traceback.format_exc(),"error")
         chat("error in thread "+threading.currentThread().name+": '%s'. attempting reboot..."%str(error))
         shutdown = 1
 

@@ -17,7 +17,7 @@ def log(string,level="debug"):
 
 try:
     f = open("data.py","w")
-    f.write("channel = \""+data.channel+"\"\n")
+    f.write("channelName = \""+data.channelName+"\"\n")
     f.write("info = \""+data.info+"\"\n")
     f.write("ralle = \""+data.ralle+"\"\n")
     f.write("quote = "+str(data.quote)+"\n")
@@ -26,6 +26,7 @@ try:
     f.write("perms = "+str(data.perms)+"\n")
     f.write("mvd = "+str(data.mvd)+"\n")
     f.write("md = "+str(data.md)+"\n")
+    f.write("streamtime = "+str(data.streamtime)+"\n")
     f.write("savedAt = \""+data.savedAt+"\"\n")
     f.write("reboot = False\n")
     f.write("update = False\n")
