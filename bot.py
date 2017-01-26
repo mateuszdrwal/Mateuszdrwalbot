@@ -1,5 +1,5 @@
 from __future__ import division
-debug = 1
+debug = 0
 
 import traceback,requests,classes,socket,time,re,threading,json,time,math,datetime,os,gspread,loginInfo,data,enchant,string,sys,logging
 from oauth2client.service_account import ServiceAccountCredentials
