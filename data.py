@@ -13,7 +13,7 @@ u'wiki': {
 },
  u'briansspeedruns': {
 'reply': u'speedrun.com/user/Lorgon111',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'Returns a link to brians speedruns on speedrun.com'
@@ -32,12 +32,12 @@ u'wiki': {
  'perm': 2,
  'help': '!removecommand <command> removes a command created by !addcommand. Ops only.'
 },
- u'timer': {
-'reply': u'',
+ u'shamelessplug': {
+'reply': u'Sub to the creator of this bot: TheMCmateuszdrwal',
  'removeable': False,
  'hidden': False,
  'perm': 0,
- 'help': 'A timer for brians terraria speedruns. !timer for current time. !timer start/stop/add/remove/split for Helpers only'
+ 'help': 'pls'
 },
  u'shutdown': {
 'reply': u'',
@@ -48,17 +48,17 @@ u'wiki': {
 },
  u'briansstuff': {
 'reply': u'youtube.com/user/lorgon111 twitter.com/lorgon111 or @lorgon111',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'Links to brians social media and youtube'
 },
- 'ralle': {
+ 'help': {
 'reply': '',
  'removeable': False,
- 'hidden': True,
+ 'hidden': False,
  'perm': 0,
- 'help': 'Same as !info but only settable by rallekralle11'
+ 'help': 'helpception'
 },
  'uptime': {
 'reply': '',
@@ -69,21 +69,14 @@ u'wiki': {
 },
  u'stats': {
 'reply': u'goo.gl/RkGAic',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'Returns a link to a spreadsheet with many stats from the streams'
 },
- 'help': {
-'reply': '',
- 'removeable': False,
- 'hidden': False,
- 'perm': 0,
- 'help': 'helpception'
-},
  u'ping': {
 'reply': u'pong',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'Returns pong. used for debugging to check if the bot is still alive'
@@ -104,21 +97,21 @@ u'wiki': {
 },
  u'fastcardgen': {
 'reply': u'tulululululululululup! zingzangzum!',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'why? This is a funny thing brian did while showing of the superfast card generation in minecraft bingo v3 during its development streams.'
 },
  u'donate': {
 'reply': u'brian/lorgon111 donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=PHG9P8B87YETS',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'A link to where you can donate to brian/lorgon111'
 },
  u'lifefruit': {
 'reply': u'Lifefruit, Yum!',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'To use when brian eats a lifefruit in terraria'
@@ -151,9 +144,16 @@ u'wiki': {
  'perm': 0,
  'help': 'Dont question it'
 },
+ 'ralle': {
+'reply': '',
+ 'removeable': False,
+ 'hidden': True,
+ 'perm': 0,
+ 'help': 'Same as !info but only settable by rallekralle11'
+},
  u'torches': {
 'reply': u'torches, torches, torches!',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'To use when brian crafts torches'
@@ -181,57 +181,57 @@ u'wiki': {
 },
  u'github': {
 'reply': u'help develop the bot: https://github.com/mateuszdrwal/Mateuszdrwalbot',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'This command returns simple text.'
 },
  u'splits': {
 'reply': u'goo.gl/BVVJAL',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'A link to the spreadsheet where all the splits from the bots timer are stored'
 },
- u'shamelessplug': {
-'reply': u'Sub to the creator of this bot: TheMCmateuszdrwal',
- 'removeable': True,
+ u'timer': {
+'reply': u'',
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
- 'help': 'pls'
+ 'help': 'A timer for brians terraria speedruns. !timer for current time. !timer start/stop/add/remove/split for Helpers only'
 },
  u'leafwings': {
 'reply': u'GO VISIT LEAFWINGS DEALER',
- 'removeable': True,
+ 'removeable': False,
  'hidden': False,
  'perm': 0,
  'help': 'To use at nighttime in hardmode when brian has not gotten any wings yet'
 }
 }
 perms = {#0: normal 1: helper 2: op 3: owner
-u'starrlett20': 2,
+u'edi_j': 1,
+ u'starrlett20': 2,
  u'conedodger240': 2,
  u'rallekralle11': 1,
  u'skinfan13': 2,
- u'jahg1977': 2,
+ u'mateuszdrwal': 3,
  u'bergbergberg': 2,
  u'greatscottlp': 2,
- u'kinkajou1015': 2,
+ u'konotyran': 1,
  u'ajleece95': 2,
- u'frustbox': 2,
  u'mbxdllfs': 2,
  u'mateuszdrwalbot': 3,
  u'lorgon': 3,
  u'test': 0,
  u'hiboymc': 2,
- u'mateuszdrwal': 3,
- u'konotyran': 1,
- u'edi_j': 1
+ u'frustbox': 2,
+ u'jahg1977': 2,
+ u'kinkajou1015': 2
 }
 mvd = 0
 md = 0
 streamtime = 0
-savedAt = "2017-01-26"
+savedAt = "2017-03-30"
 reboot = False
 update = False
 timerActive = False
