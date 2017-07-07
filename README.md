@@ -13,5 +13,5 @@ TODO:
 - refactor heartbeat system
 - refactor error detection
 - make unit tests for commands
-- docstrings in utilityFunctions.py
 - fix systems for connecting to the bot (see start of client.py for details)
+- refactor updating spreadsheet. use acell() or cell() to get cells and update_cells() to update cells all at once

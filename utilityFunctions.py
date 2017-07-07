@@ -11,6 +11,7 @@ class utilityFunctions:
 		return ""
 
 	def readableTime(self,timestamp): #converts timestamp into readable time
+                """input amount of seconds to get readable time string"""
 		m, sec = divmod(int(timestamp), 60)
 		h, m = divmod(m, 60)
 		h = int(h)
@@ -59,6 +60,10 @@ class utilityFunctions:
 		return rec
 
 	def perm(self,perm,nick,level): #returns True if nick is in the ops array
+        """perm: input variable called perms unless you know what you are doing
+nick: input the username to check
+level: input the lowest permission level required
+returns bool depending on if nick has perms"""
 		if perm.get(nick,0) >= level:
 			return True
 		return False

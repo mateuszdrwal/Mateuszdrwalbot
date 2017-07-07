@@ -6,7 +6,7 @@ uf = utilityFunctions()
 
 class info: #the class for setable custom commands
 
-	def set(self,ops,username,message):#returns chat message, imput array of users that can change the text, their username and a string containing the potential new text
+	def set(self,ops,username,message):#returns chat message, input array of users that can change the text, their username and a string containing the potential new text
 		if uf.perm(ops,username,1):
 			self.info = message.capitalize()
 			return "info successfully set to \"%s\"" % self.info
