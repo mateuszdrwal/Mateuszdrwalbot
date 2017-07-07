@@ -8,7 +8,7 @@ Feel free to help me develop stuff
 if you ever wonder why this bot has such obscure features, its because im treating this as a large practical coding practice and am trying as much different approaches as possible.
 
 TODO:
-- add !joke and !quote (classes alredy made)
+- add remove option to !joke and !quote
 - refactor data saving/loading system
 - refactor heartbeat system
 - refactor error detection

@@ -14,8 +14,8 @@ uf = utilityFunctions()
 info = classes.info()
 ralle = classes.info()
 timer = classes.timer()
-joke = classes.randomMessages()
-quote = classes.randomMessages()
+jokes = classes.randomMessages()
+quotes = classes.randomMessages()
 usrTable = classes.ssTable()
 wordTable = classes.ssTable()
 
@@ -40,8 +40,8 @@ channel = int(json.loads(uf.url("https://api.twitch.tv/kraken/users?login=%s&cli
 perms = data.perms
 info.info = data.info
 ralle.info = data.ralle
-joke.load(data.joke)
-quote.load(data.quote)
+jokes.load(data.jokes)
+quotes.load(data.quotes)
 commands = data.commands
 timer.started = data.timerStarted
 timer.active = data.timerActive
@@ -338,6 +338,62 @@ class botCommands:
 		mute = True
 		chat("Ill shut up.")
 
+	@staticmethod
+	def quote(args, usr):
+		global perms, quotes
+
+		if args[1:] == []:
+                        if quotes.array == []:
+                                chat("no quotes added yet")
+                                return
+			chat(quotes.get())
+			return
+
+		if args[1] == "add":
+                        if uf.perm(perms,usr,1):
+                                quotes.add(" ".join(args[2:]))
+                                save()
+                                chat("\"%s\" has been added as a quote" % " ".join(args[2:]))
+                                return
+                        chat("You do not have permission to do that!")
+			return
+
+		if args[1] == "remove":
+			pass #TODO
+
+	@staticmethod
+	def joke(args, usr):
+		global perms, jokes
+
+		if args[1:] == []:
+                        if jokes.array == []:
+                                chat("no jokes added yet")
+                                return
+			chat(jokes.get())
+			return
+
+		if args[1] == "add":
+                        if uf.perm(perms,usr,1):
+                                jokes.add(" ".join(args[2:]))
+                                save()
+                                chat("\"%s\" has been added as a joke" % " ".join(args[2:]))
+                                return
+                        chat("You do not have permission to do that!")
+			return
+
+		if args[1] == "remove":
+			pass #TODO
+
+	@staticmethod
+	def debug(args, usr):
+		if args[1] == "save":
+			save()
+			chat("saved.")
+		elif args[1] == "quotes":
+			chat(str(quotes.array))
+		elif args[1] == "jokes":
+			chat(str(jokes.array))
+
 
 # --------------------
 #	 functions
@@ -364,8 +420,8 @@ def save(override=False, reboot=False, update=False):
 		f.write("channelName = \"" + data.channelName + "\"\n")
 		f.write("info = \"" + info.info + "\"\n")
 		f.write("ralle = \"" + ralle.info + "\"\n")
-		f.write("quote = " + str(quote.array) + "\n")
-		f.write("joke = " + str(joke.array) + "\n")
+		f.write("quotes = " + str(quotes.array) + "\n")
+		f.write("jokes = " + str(jokes.array) + "\n")
 		f.write("commands = " + str(commands).replace("{", "{\n").replace("',", "',\n").replace("e,", "e,\n").replace("},","},\n").replace("0,", "0,\n").replace("1,", "1,\n").replace("2,", "2,\n").replace("3,", "3,\n").replace("}","\n}") + "\n")
 		f.write("perms = " + str(perms).replace("{", "{#0: normal 1: helper 2: op 3: owner\n").replace(",", ",\n").replace("}", "\n}") + "\n")
 		f.write("mvd = " + str(mvd) + "\n")
